@@ -67,7 +67,7 @@
       background: #f9f9f9;
     }
 
-    /* The badge used for the "last update" fork. 
+    /* The badge used for the "last update" fork.
        We'll set background-color in JS based on fork name */
     .badge {
       display: inline-block;
@@ -101,6 +101,8 @@
   <h1>Ethereum Consensus Specifications</h1>
   <h2>Preset Variables</h2>
   <div id="preset-container"></div>
+  <h2>Configuration Variables</h2>
+  <div id="config-container"></div>
 
   <script>
     let jsonData = {};
@@ -118,7 +120,7 @@
         DENEB:     "#e83e8c", // pink
         ELECTRA:   "#ffc107", // yellow
         FULU:      "#c1c107", // greenish yellow
-        // ... add more forks if you want 
+        // ... add more forks if you want
       };
       const up = forkName.toUpperCase();
       return colors[up] || "#17a2b8"; // fallback = teal
@@ -234,8 +236,67 @@
       return { baseVars, forkVars };
     }
 
+    function collectConfigs(configData) {
+      const baseVars = {};
+      const forkVars = {};
+      const lastForkValue = {};
+
+      if (!configData) return { baseVars, forkVars };
+
+      const includedPhases = getIncludedPhases(configData);
+      const knownForkNames = includedPhases.map((p) => p.toUpperCase());
+
+      includedPhases.forEach((phaseName) => {
+        const phaseObj = configData[phaseName];
+        if (!phaseObj?.config_vars) return;
+
+        Object.keys(phaseObj.config_vars).forEach((varName) => {
+          const { base, fork } = parseForkName(varName, knownForkNames);
+          const parsedVal = parseValue(phaseObj.config_vars[varName]);
+
+          // ensure a base
+          if (!baseVars[base]) {
+            baseVars[base] = {
+              type: parsedVal.type,
+              value: parsedVal.value,
+              introducingFork: (fork || phaseName).toUpperCase(),
+            };
+          }
+
+          if (!fork) {
+            // update base
+            baseVars[base].type = parsedVal.type;
+            baseVars[base].value = parsedVal.value;
+            return;
+          }
+
+          // it's a fork update
+          if (!forkVars[base]) {
+            forkVars[base] = [];
+          }
+          if (!lastForkValue[base]) {
+            lastForkValue[base] = {};
+          }
+          if (lastForkValue[base][fork] === undefined) {
+            lastForkValue[base][fork] = baseVars[base].value;
+          }
+          const prevVal = lastForkValue[base][fork];
+          if (parsedVal.value !== prevVal) {
+            forkVars[base].push({
+              fork,
+              value: parsedVal.value,
+              type: parsedVal.type,
+            });
+            lastForkValue[base][fork] = parsedVal.value;
+          }
+        });
+      });
+
+      return { baseVars, forkVars };
+    }
+
     /**
-     * 7) Sorting forks newest->oldest (descending). 
+     * 7) Sorting forks newest->oldest (descending).
      *    PHASE0 goes to bottom, everything else sorted reverse-alphabetical.
      */
     function forkGroupCompareDescending(a, b) {
@@ -247,7 +308,7 @@
     }
 
     /**
-     * 8) Build the unified rows for a variable: 
+     * 8) Build the unified rows for a variable:
      *    each row is { fork, type, mainnetValue, minimalValue }
      */
     function buildUnifiedRows(mBase, mForks, nBase, nForks) {
@@ -255,8 +316,6 @@
       if (mBase) allForks.add(mBase.introducingFork);
       (mForks || []).forEach((f) => allForks.add(f.fork));
 
-      console.log("m:", mBase);
-      console.log("n:", nBase);
       if (nBase) allForks.add(nBase.introducingFork);
       (nForks || []).forEach((f) => allForks.add(f.fork));
 
@@ -330,8 +389,8 @@
     }
 
     /**
-     * 10) Summary line. 
-     *     If type is "Unknown" or "", show "VAR_NAME = value" 
+     * 10) Summary line.
+     *     If type is "Unknown" or "", show "VAR_NAME = value"
      *     else "VAR_NAME: type = value"
      *     Then a color-coded badge for lastFork.
      */
@@ -414,53 +473,111 @@
         if (!resp.ok) throw new Error(`HTTP error: ${resp.status}`);
         jsonData = await resp.json();
 
-        // collect from mainnet + minimal
-        const mainnet = collectPresets(jsonData.mainnet);
-        const minimal = collectPresets(jsonData.minimal);
+        /*
+         * Preset Variables:
+         */
 
-        // unify
-        const allVars = new Set([
-          ...Object.keys(mainnet.baseVars),
-          ...Object.keys(minimal.baseVars),
+        // Collect from mainnet + minimal
+        const mainnetPresets = collectPresets(jsonData.mainnet);
+        const minimalPresets = collectPresets(jsonData.minimal);
+
+        // Unify
+        const allPresetVars = new Set([
+          ...Object.keys(mainnetPresets.baseVars),
+          ...Object.keys(minimalPresets.baseVars),
         ]);
 
-        // group by earliest introducing fork
-        const groups = {};
-        allVars.forEach((baseName) => {
-          const mVal = mainnet.baseVars[baseName];
-          const nVal = minimal.baseVars[baseName];
+        // Group by earliest introducing fork
+        const presetGroups = {};
+        allPresetVars.forEach((baseName) => {
+          const mVal = mainnetPresets.baseVars[baseName];
+          const nVal = minimalPresets.baseVars[baseName];
           const grp = pickIntroducingFork(mVal, nVal);
-          if (!groups[grp]) groups[grp] = [];
-          groups[grp].push(baseName);
+          if (!presetGroups[grp]) presetGroups[grp] = [];
+          presetGroups[grp].push(baseName);
         });
 
-        // sort group names ascending (PHASE0 first, then alpha)
-        const groupKeys = Object.keys(groups).sort(forkGroupCompareAscending);
+        // Sort group names ascending (PHASE0, ALTAIR, BELLATRIX, ...)
+        const presetGroupKeys = Object.keys(presetGroups).sort(forkGroupCompareAscending);
 
-        const container = document.getElementById("preset-container");
-        container.innerHTML = "";
+        // Start to build section
+        const presetVarsContainer = document.getElementById("preset-container");
+        presetVarsContainer.innerHTML = "";
 
-        // build each group
-        groupKeys.forEach((groupName) => {
+        presetGroupKeys.forEach((groupName) => {
           const groupDiv = document.createElement("div");
           groupDiv.className = "phase-group";
           groupDiv.innerHTML = `<h2>${groupName}</h2>`;
 
-          const varNames = groups[groupName];
-          varNames.sort(); // alphabetical variable names
+          const varNames = presetGroups[groupName];
+          varNames.sort();
           varNames.forEach((vName) => {
             const row = renderVariable(
               vName,
-              mainnet.baseVars[vName],
-              mainnet.forkVars[vName] || [],
-              minimal.baseVars[vName],
-              minimal.forkVars[vName] || []
+              mainnetPresets.baseVars[vName],
+              mainnetPresets.forkVars[vName] || [],
+              minimalPresets.baseVars[vName],
+              minimalPresets.forkVars[vName] || []
             );
             groupDiv.appendChild(row);
           });
 
-          container.appendChild(groupDiv);
+          presetVarsContainer.appendChild(groupDiv);
         });
+
+        /*
+         * Configuration Variables:
+         */
+
+        // Collect from mainnet + minimal
+        const mainnetConfigs = collectConfigs(jsonData.mainnet);
+        const minimalConfigs = collectConfigs(jsonData.minimal);
+
+        // Unify
+        const allConfigVars = new Set([
+          ...Object.keys(mainnetConfigs.baseVars),
+          ...Object.keys(minimalConfigs.baseVars),
+        ]);
+
+        // Group by earliest introducing fork
+        const configGroups = {};
+        allConfigVars.forEach((baseName) => {
+          const mVal = mainnetConfigs.baseVars[baseName];
+          const nVal = minimalConfigs.baseVars[baseName];
+          const grp = pickIntroducingFork(mVal, nVal);
+          if (!configGroups[grp]) configGroups[grp] = [];
+          configGroups[grp].push(baseName);
+        });
+
+        // Sort group names ascending (PHASE0, ALTAIR, BELLATRIX, ...)
+        const configGroupKeys = Object.keys(configGroups).sort(forkGroupCompareAscending);
+
+        // Start to build section
+        const configVarsContainer = document.getElementById("config-container");
+        configVarsContainer.innerHTML = "";
+
+        configGroupKeys.forEach((groupName) => {
+          const groupDiv = document.createElement("div");
+          groupDiv.className = "phase-group";
+          groupDiv.innerHTML = `<h2>${groupName}</h2>`;
+
+          const varNames = configGroups[groupName];
+          console.log(varNames);
+          varNames.sort();
+          varNames.forEach((vName) => {
+            const row = renderVariable(
+              vName,
+              mainnetConfigs.baseVars[vName],
+              mainnetConfigs.forkVars[vName] || [],
+              minimalConfigs.baseVars[vName],
+              minimalConfigs.forkVars[vName] || []
+            );
+            groupDiv.appendChild(row);
+          });
+
+          configVarsContainer.appendChild(groupDiv);
+        });
+
       } catch (err) {
         console.error("Error loading data:", err);
       }
