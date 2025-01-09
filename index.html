@@ -116,6 +116,14 @@
     <div id="config-container"></div>
   </details>
 
+  <details>
+    <summary>
+      <span class="summary-icon"></span>
+      Functions
+    </summary>
+    <div id="function-container"></div>
+  </details>
+
   <script>
     let jsonData = {};
 
@@ -307,6 +315,62 @@
       return { baseVars, forkVars };
     }
 
+    function collectFunctions(functionData) {
+      const baseVars = {};
+      const forkVars = {};
+      const lastForkValue = {};
+
+      if (!functionData) return { baseVars, forkVars };
+
+      const includedPhases = getIncludedPhases(functionData);
+      const knownForkNames = includedPhases.map((p) => p.toUpperCase());
+
+      includedPhases.forEach((phaseName) => {
+        const phaseObj = functionData[phaseName];
+        if (!phaseObj?.functions) return;
+
+        Object.keys(phaseObj.functions).forEach((fnName) => {
+          const { base, fork } = parseForkName(fnName, knownForkNames);
+          const fnBody = phaseObj.functions[fnName];
+
+          // ensure a base
+          if (!baseVars[base]) {
+            baseVars[base] = {
+              value: fnBody,
+              introducingFork: (fork || phaseName).toUpperCase(),
+            };
+          }
+
+          if (!fork) {
+            // update base
+            baseVars[base].value = fnBody;
+            return;
+          }
+
+          // it's a fork update
+          if (!forkVars[base]) {
+            forkVars[base] = [];
+          }
+          if (!lastForkValue[base]) {
+            lastForkValue[base] = {};
+          }
+          if (lastForkValue[base][fork] === undefined) {
+            lastForkValue[base][fork] = baseVars[base].value;
+          }
+          const prevVal = lastForkValue[base][fork];
+          if (fnBody !== prevVal) {
+            forkVars[base].push({
+              fork,
+              value: fnBody,
+            });
+            lastForkValue[base][fork] = fnBody;
+          }
+        });
+      });
+
+      return { baseVars, forkVars };
+    }
+
     /**
      * 7) Sorting forks newest->oldest (descending).
      *    PHASE0 goes to bottom, everything else sorted reverse-alphabetical.
@@ -406,7 +470,7 @@
      *     else "VAR_NAME: type = value"
      *     Then a color-coded badge for lastFork.
      */
-    function buildSummaryLine(varName, mBase, mForks) {
+    function buildSummaryLine(name, mBase, mForks) {
       if (!mBase && (!mForks || !mForks.length)) {
         return `${varName} = (no mainnet data)`;
       }
@@ -428,12 +492,9 @@
       const color = getForkColor(lastFork);
       const badge = `<span class="badge" style="background-color: ${color}">${lastFork}</span>`;
 
-      return `${varName}${displayType}${lastVal} ${badge}`;
+      return `${name}${displayType}${lastVal} ${badge}`;
     }
 
-    /**
-     * 11) Render a single variable
-     */
     function renderVariable(baseName, mBase, mForks, nBase, nForks) {
       const rows = buildUnifiedRows(mBase, mForks, nBase, nForks);
       const tableHTML = buildConsolidatedTable(rows);
@@ -452,6 +513,31 @@
       const content = document.createElement("div");
       content.className = "expanded-content";
       content.innerHTML = tableHTML;
+      details.appendChild(content);
+
+      return details;
+    }
+
+    function renderFunction(baseName, mBase, mForks) {
+      //const rows = buildUnifiedRows(mBase, mForks, nBase, nForks);
+      //const tableHTML = buildConsolidatedTable(rows);
+      //const summaryText = buildSummaryLine(baseName, mBase, mForks);
+      const summaryText = baseName;
+
+      const details = document.createElement("details");
+      details.className = "preset-group";
+
+      const summary = document.createElement("summary");
+      summary.innerHTML = `
+        <span class="summary-icon"></span>
+        <span class="collapsed-header">${summaryText}</span>
+      `;
+      details.appendChild(summary);
+
+      const content = document.createElement("div");
+      content.className = "expanded-content";
+      //content.innerHTML = tableHTML;
+      content.innerHTML = "";
       details.appendChild(content);
 
       return details;
@@ -574,7 +660,6 @@
           groupDiv.innerHTML = `<h2>${groupName}</h2>`;
 
           const varNames = configGroups[groupName];
-          console.log(varNames);
           varNames.sort();
           varNames.forEach((vName) => {
             const row = renderVariable(
@@ -588,6 +673,54 @@
           });
 
           configVarsContainer.appendChild(groupDiv);
+        });
+
+        /*
+         * Functions:
+         */
+
+        // Collect functions
+        const functions = collectFunctions(jsonData.mainnet);
+        console.log(functions)
+
+        // Unify
+        const allFunctions = new Set([
+          ...Object.keys(functions.baseVars),
+        ]);
+
+        // Group by earliest introducing fork
+        const functionGroups = {};
+        allFunctions.forEach((baseName) => {
+          const mVal = functions.baseVars[baseName];
+          const grp = pickIntroducingFork(mVal, mVal);
+          if (!functionGroups[grp]) functionGroups[grp] = [];
+          functionGroups[grp].push(baseName);
+        });
+
+        // Sort group names ascending (PHASE0, ALTAIR, BELLATRIX, ...)
+        const functionGroupKeys = Object.keys(functionGroups).sort(forkGroupCompareAscending);
+
+        // Start to build section
+        const functionsContainer = document.getElementById("function-container");
+        functionsContainer.innerHTML = "";
+
+        functionGroupKeys.forEach((groupName) => {
+          const groupDiv = document.createElement("div");
+          groupDiv.className = "phase-group";
+          groupDiv.innerHTML = `<h2>${groupName}</h2>`;
+
+          const fnNames = functionGroups[groupName];
+          fnNames.sort();
+          fnNames.forEach((fnName) => {
+            const row = renderFunction(
+              fnName,
+              functions.baseVars[fnName],
+              functions.forkVars[fnName] || [],
+            );
+            groupDiv.appendChild(row);
+          });
+
+          functionsContainer.appendChild(groupDiv);
         });
 
       } catch (err) {
