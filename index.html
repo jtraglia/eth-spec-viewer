@@ -467,33 +467,44 @@
       `;
     }
 
-    function buildSummaryLine(name, mBase, mForks, displayTypeAndValue=true) {
+    function buildSummaryLine(name, mBase, mForks, displayTypeAndValue = true) {
       if (!mBase && (!mForks || !mForks.length)) {
-        return `${varName} = (no mainnet data)`;
+        return `${name} = (no mainnet data)`;
       }
-      let lastFork = mBase?.introducingFork || "PHASE0";
-      let lastVal  = mBase?.value || "N/A";
+
+      // Collect all fork names (base + forks)
+      const forkNames = new Set();
+      if (mBase) forkNames.add(mBase.introducingFork);
+      if (mForks) {
+        mForks.forEach((f) => forkNames.add(f.fork));
+      }
+
+      // Sort forks in ascending order (PHASE0 first, then alphabetical)
+      const sortedForks = Array.from(forkNames).sort(forkGroupCompareAscending);
+
+      // Generate badges for all forks
+      const badges = sortedForks
+        .map((fork) => {
+          const color = getForkColor(fork);
+          return `<span class="badge" style="background-color: ${color}">${fork}</span>`;
+        })
+        .join(" ");
+
+      let lastVal = mBase?.value || "N/A";
       let lastType = mBase?.type || "";
 
       if (mForks && mForks.length > 0) {
-        // newest = last element
+        // Get value from the most recent fork
         const newest = mForks[mForks.length - 1];
-        lastFork = newest.fork;
-        lastVal  = newest.value;
+        lastVal = newest.value;
         lastType = newest.type || lastType;
       }
 
-      // A colored badge for lastFork
-      const color = getForkColor(lastFork);
-      const badge = `<span class="badge" style="background-color: ${color}">${lastFork}</span>`;
-
       if (displayTypeAndValue) {
-        const displayType = (lastType && lastType !== "Unknown")
-          ? `: ${lastType} = `
-          : ` = `;
-        return `${name}${displayType}${lastVal} ${badge}`;
+        const displayType = lastType && lastType !== "Unknown" ? `: ${lastType} = ` : ` = `;
+        return `${name}${displayType}${lastVal} ${badges}`;
       } else {
-        return `${name} ${badge}`;
+        return `${name} ${badges}`;
       }
     }
 
