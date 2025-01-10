@@ -479,8 +479,8 @@
         mForks.forEach((f) => forkNames.add(f.fork));
       }
 
-      // Sort forks in ascending order (PHASE0 first, then alphabetical)
-      const sortedForks = Array.from(forkNames).sort(forkGroupCompareAscending);
+      // Sort forks in the desired order (PHASE0 first, then reverse alphabetical)
+      const sortedForks = Array.from(forkNames).sort(forkGroupCompareDescending);
 
       // Generate badges for all forks
       const badges = sortedForks
