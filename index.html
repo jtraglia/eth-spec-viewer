@@ -330,40 +330,33 @@
         if (!phaseObj?.functions) return;
 
         Object.keys(phaseObj.functions).forEach((fnName) => {
-          const { base, fork } = parseForkName(fnName, knownForkNames);
           const fnBody = phaseObj.functions[fnName];
+          const fork = phaseName.toUpperCase();
 
           // ensure a base
-          if (!baseVars[base]) {
-            baseVars[base] = {
+          if (!baseVars[fnName]) {
+            baseVars[fnName] = {
               value: fnBody,
-              introducingFork: (fork || phaseName).toUpperCase(),
+              introducingFork: fork,
             };
-          }
-
-          if (!fork) {
-            // update base
-            baseVars[base].value = fnBody;
             return;
           }
 
           // it's a fork update
-          if (!forkVars[base]) {
-            forkVars[base] = [];
+          if (!forkVars[fnName]) {
+            forkVars[fnName] = [];
           }
-          if (!lastForkValue[base]) {
-            lastForkValue[base] = {};
+          if (lastForkValue[fnName] === undefined) {
+            lastForkValue[fnName] = baseVars[fnName].value;
           }
-          if (lastForkValue[base][fork] === undefined) {
-            lastForkValue[base][fork] = baseVars[base].value;
-          }
-          const prevVal = lastForkValue[base][fork];
+
+          const prevVal = lastForkValue[fnName];
           if (fnBody !== prevVal) {
-            forkVars[base].push({
+            forkVars[fnName].push({
               fork,
               value: fnBody,
             });
-            lastForkValue[base][fork] = fnBody;
+            lastForkValue[fnName] = fnBody;
           }
         });
       });
@@ -464,13 +457,7 @@
       `;
     }
 
-    /**
-     * 10) Summary line.
-     *     If type is "Unknown" or "", show "VAR_NAME = value"
-     *     else "VAR_NAME: type = value"
-     *     Then a color-coded badge for lastFork.
-     */
-    function buildSummaryLine(name, mBase, mForks) {
+    function buildSummaryLine(name, mBase, mForks, displayTypeAndValue=true) {
       if (!mBase && (!mForks || !mForks.length)) {
         return `${varName} = (no mainnet data)`;
       }
@@ -485,14 +472,19 @@
         lastVal  = newest.value;
         lastType = newest.type || lastType;
       }
-      const displayType = (lastType && lastType !== "Unknown")
-        ? `: ${lastType} = `
-        : ` = `;
+
       // A colored badge for lastFork
       const color = getForkColor(lastFork);
       const badge = `<span class="badge" style="background-color: ${color}">${lastFork}</span>`;
 
-      return `${name}${displayType}${lastVal} ${badge}`;
+      if (displayTypeAndValue) {
+        const displayType = (lastType && lastType !== "Unknown")
+          ? `: ${lastType} = `
+          : ` = `;
+        return `${name}${displayType}${lastVal} ${badge}`;
+      } else {
+        return `${name} ${badge}`;
+      }
     }
 
     function renderVariable(baseName, mBase, mForks, nBase, nForks) {
@@ -521,8 +513,7 @@
     function renderFunction(baseName, mBase, mForks) {
       //const rows = buildUnifiedRows(mBase, mForks, nBase, nForks);
       //const tableHTML = buildConsolidatedTable(rows);
-      //const summaryText = buildSummaryLine(baseName, mBase, mForks);
-      const summaryText = baseName;
+      const summaryText = buildSummaryLine(baseName, mBase, mForks, displayTypeAndValue=false);
 
       const details = document.createElement("details");
       details.className = "preset-group";
@@ -681,7 +672,6 @@
 
         // Collect functions
         const functions = collectFunctions(jsonData.mainnet);
-        console.log(functions)
 
         // Unify
         const allFunctions = new Set([
