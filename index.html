@@ -96,6 +96,16 @@
       background: #ddd;
     }
   </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
 </head>
 <body>
   <h1>Ethereum Consensus Specifications</h1>
@@ -511,8 +521,6 @@
     }
 
     function renderFunction(baseName, mBase, mForks) {
-      //const rows = buildUnifiedRows(mBase, mForks, nBase, nForks);
-      //const tableHTML = buildConsolidatedTable(rows);
       const summaryText = buildSummaryLine(baseName, mBase, mForks, displayTypeAndValue=false);
 
       const details = document.createElement("details");
@@ -527,8 +535,33 @@
 
       const content = document.createElement("div");
       content.className = "expanded-content";
-      //content.innerHTML = tableHTML;
-      content.innerHTML = "";
+
+      for (const {fork, value} of [...mForks].reverse()) {
+        const section = document.createElement('div');
+        section.innerHTML = `
+          <details class="preset-group">
+            <summary>
+              <span class="summary-icon"></span>
+              <span class="badge" style="background-color: ${getForkColor(fork)}">${fork}</span>
+            </summary>
+            <pre class="line-numbers"><code class="language-python">${value}</code></pre>
+          </details>
+        `;
+        content.appendChild(section);
+      }
+
+      const section = document.createElement('div');
+      section.innerHTML = `
+        <details class="preset-group">
+          <summary>
+            <span class="summary-icon"></span>
+            <span class="badge" style="background-color: ${getForkColor(mBase.introducingFork)}">${mBase.introducingFork}</span>
+          </summary>
+          <pre class="line-numbers"><code class="language-python">${mBase.value}</code></pre>
+        </details>
+      `;
+      content.appendChild(section);
+
       details.appendChild(content);
 
       return details;
@@ -716,6 +749,8 @@
       } catch (err) {
         console.error("Error loading data:", err);
       }
+
+      Prism.highlightAll();
     }
 
     loadData();
