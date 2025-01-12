@@ -468,7 +468,7 @@
     // Items (Functions, SSZ Objects, Dataclasses, Custom Types)
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function buildItemSummary(name, mForks, displayTypeAndValue = true) {
+    function buildItemSummary(name, mForks, displayValueInSummary) {
       const forkNames = new Set();
       mForks.forEach((f) => forkNames.add(f.fork));
       const sortedForks = Array.from(forkNames).sort(forkGroupCompareDescending);
@@ -481,24 +481,20 @@
         .join(" ");
 
       let lastVal = mForks[0].value || "N/A";
-      let lastType = mForks[0].type || "";
-
       if (mForks && mForks.length > 0) {
         const newest = mForks[mForks.length - 1];
         lastVal = newest.value;
-        lastType = newest.type || lastType;
       }
 
-      if (displayTypeAndValue) {
-        const displayType = lastType && lastType !== "Unknown" ? `: ${lastType} = ` : ` = `;
-        return `${name}${displayType}${lastVal} ${badges}`;
+      if (displayValueInSummary) {
+        return `${name} = ${lastVal} ${badges}`;
       } else {
         return `${name} ${badges}`;
       }
     }
 
-    function renderItem(baseName, mForks) {
-      const summaryText = buildItemSummary(baseName, mForks, displayTypeAndValue=false);
+    function renderItem(baseName, mForks, displayValueInSummary) {
+      const summaryText = buildItemSummary(baseName, mForks, displayValueInSummary);
 
       const details = document.createElement("details");
       details.className = "preset-group";
@@ -560,7 +556,7 @@
       return items;
     }
 
-    function addItems(jsonData, fieldName) {
+    function addItems(jsonData, fieldName, displayValueInSummary = false) {
         const items = collectItems(jsonData.mainnet, fieldName);
 
         const itemGroups = {};
@@ -577,7 +573,7 @@
           groupDiv.className = "phase-group";
           groupDiv.innerHTML = `<h2>${groupName}</h2>`;
           itemGroups[groupName].sort().forEach((itemName) => {
-            groupDiv.appendChild(renderItem(itemName, items[itemName]));
+            groupDiv.appendChild(renderItem(itemName, items[itemName], displayValueInSummary));
           });
           itemContainer.appendChild(groupDiv);
         });
@@ -596,7 +592,7 @@
         addVariables(jsonData, "constant_vars");
         addVariables(jsonData, "preset_vars");
         addVariables(jsonData, "config_vars");
-        addItems(jsonData, "custom_types");
+        addItems(jsonData, "custom_types", displayValueInSummary=true);
         addItems(jsonData, "dataclasses");
         addItems(jsonData, "ssz_objects");
         addItems(jsonData, "functions");
