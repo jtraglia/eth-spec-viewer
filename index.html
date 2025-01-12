@@ -112,7 +112,7 @@
       <span class="summary-icon"></span>
       Preset Variables
     </summary>
-    <div id="preset-container"></div>
+    <div id="preset_vars"></div>
   </details>
 
   <details>
@@ -120,7 +120,31 @@
       <span class="summary-icon"></span>
       Configuration Variables
     </summary>
-    <div id="config-container"></div>
+    <div id="config_vars"></div>
+  </details>
+
+  <details>
+    <summary>
+      <span class="summary-icon"></span>
+      Custom Types
+    </summary>
+    <div id="custom_types"></div>
+  </details>
+
+  <details>
+    <summary>
+      <span class="summary-icon"></span>
+      Dataclasses
+    </summary>
+    <div id="dataclasses"></div>
+  </details>
+
+  <details>
+    <summary>
+      <span class="summary-icon"></span>
+      SSZ Objects
+    </summary>
+    <div id="ssz_objects"></div>
   </details>
 
   <details>
@@ -128,7 +152,7 @@
       <span class="summary-icon"></span>
       Functions
     </summary>
-    <div id="function-container"></div>
+    <div id="functions"></div>
   </details>
 
   <script>
@@ -157,7 +181,7 @@
         && phaseName.toUpperCase() != "WHISK";
     }
 
-    function getIncludedPhases(presetData) {
+    function getIncludedForks(presetData) {
       if (!presetData) return [];
       return Object.keys(presetData).filter(phaseIncluded);
     }
@@ -240,6 +264,39 @@
 
       let lastVal = mBase?.value || "N/A";
       let lastType = mBase?.type || "";
+
+      if (mForks && mForks.length > 0) {
+        // Get value from the most recent fork
+        const newest = mForks[mForks.length - 1];
+        lastVal = newest.value;
+        lastType = newest.type || lastType;
+      }
+
+      if (displayTypeAndValue) {
+        const displayType = lastType && lastType !== "Unknown" ? `: ${lastType} = ` : ` = `;
+        return `${name}${displayType}${lastVal} ${badges}`;
+      } else {
+        return `${name} ${badges}`;
+      }
+    }
+
+    function buildSummaryNew(name, mForks, displayTypeAndValue = true) {
+      const forkNames = new Set();
+      mForks.forEach((f) => forkNames.add(f.fork));
+
+      // Sort forks in the desired order (PHASE0 first, then reverse alphabetical)
+      const sortedForks = Array.from(forkNames).sort(forkGroupCompareDescending);
+
+      // Generate badges for all forks
+      const badges = sortedForks
+        .map((fork) => {
+          const color = getForkColor(fork);
+          return `<span class="badge" style="background-color: ${color}">${fork}</span>`;
+        })
+        .join(" ");
+
+      let lastVal = mForks[0].value || "N/A";
+      let lastType = mForks[0].type || "";
 
       if (mForks && mForks.length > 0) {
         // Get value from the most recent fork
@@ -339,8 +396,8 @@
     // Render Code (Functions)
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function renderCode(baseName, mBase, mForks) {
-      const summaryText = buildSummary(baseName, mBase, mForks, displayTypeAndValue=false);
+    function renderCode(baseName, mForks) {
+      const summaryText = buildSummaryNew(baseName, mForks, displayTypeAndValue=false);
 
       const details = document.createElement("details");
       details.className = "preset-group";
@@ -369,18 +426,6 @@
         content.appendChild(section);
       }
 
-      const section = document.createElement('div');
-      section.innerHTML = `
-        <details class="preset-group">
-          <summary>
-            <span class="summary-icon"></span>
-            <span class="badge" style="background-color: ${getForkColor(mBase.introducingFork)}">${mBase.introducingFork}</span>
-          </summary>
-          <pre class="line-numbers"><code class="language-python">${mBase.value}</code></pre>
-        </details>
-      `;
-      content.appendChild(section);
-
       details.appendChild(content);
 
       return details;
@@ -397,7 +442,7 @@
 
       if (!presetData) return { baseVars, forkVars };
 
-      const includedPhases = getIncludedPhases(presetData);
+      const includedPhases = getIncludedForks(presetData);
       const knownForkNames = includedPhases.map((p) => p.toUpperCase());
 
       includedPhases.forEach((phaseName) => {
@@ -460,7 +505,7 @@
 
       if (!configData) return { baseVars, forkVars };
 
-      const includedPhases = getIncludedPhases(configData);
+      const includedPhases = getIncludedForks(configData);
       const knownForkNames = includedPhases.map((p) => p.toUpperCase());
 
       includedPhases.forEach((phaseName) => {
@@ -513,54 +558,58 @@
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    // Collect Functions
+    // Collect Items
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
-    function collectFunctions(functionData) {
-      const baseVars = {};
-      const forkVars = {};
+    function collectItems(data, field) {
+      const items = {};
       const lastForkValue = {};
 
-      if (!functionData) return { baseVars, forkVars };
+      getIncludedForks(data).forEach((forkName) => {
+        const forkObj = data[forkName];
+        if (!forkObj?.[field]) return;
 
-      const includedPhases = getIncludedPhases(functionData);
-      const knownForkNames = includedPhases.map((p) => p.toUpperCase());
+        Object.keys(forkObj[field]).forEach((itemName) => {
+          const value = forkObj[field][itemName];
+          const fork = forkName.toUpperCase();
 
-      includedPhases.forEach((phaseName) => {
-        const phaseObj = functionData[phaseName];
-        if (!phaseObj?.functions) return;
-
-        Object.keys(phaseObj.functions).forEach((fnName) => {
-          const fnBody = phaseObj.functions[fnName];
-          const fork = phaseName.toUpperCase();
-
-          if (!baseVars[fnName]) {
-            baseVars[fnName] = {
-              value: fnBody,
-              introducingFork: fork,
-            };
+          if (!items[itemName]) {
+            items[itemName] = [{ fork, value: value}];
+            lastForkValue[itemName] = value;
             return;
           }
 
-          if (!forkVars[fnName]) {
-            forkVars[fnName] = [];
-          }
-          if (lastForkValue[fnName] === undefined) {
-            lastForkValue[fnName] = baseVars[fnName].value;
-          }
-
-          const prevVal = lastForkValue[fnName];
-          if (fnBody !== prevVal) {
-            forkVars[fnName].push({
-              fork,
-              value: fnBody,
-            });
-            lastForkValue[fnName] = fnBody;
+          if (value !== lastForkValue[itemName]) {
+            items[itemName].push({fork, value: value});
+            lastForkValue[itemName] = value;
           }
         });
       });
 
-      return { baseVars, forkVars };
+      return items;
+    }
+
+    function addItems(jsonData, fieldName) {
+        const items = collectItems(jsonData.mainnet, fieldName);
+
+        const itemGroups = {};
+        Object.keys(items).forEach((itemName) => {
+          const value = items[itemName];
+          const group = value[0].fork;
+          if (!itemGroups[group]) itemGroups[group] = [];
+          itemGroups[group].push(itemName);
+        });
+
+        const itemContainer = document.getElementById(fieldName);
+        Object.keys(itemGroups).sort(forkGroupCompareAscending).forEach((groupName) => {
+          const groupDiv = document.createElement("div");
+          groupDiv.className = "phase-group";
+          groupDiv.innerHTML = `<h2>${groupName}</h2>`;
+          itemGroups[groupName].sort().forEach((itemName) => {
+            groupDiv.appendChild(renderCode(itemName, items[itemName]));
+          });
+          itemContainer.appendChild(groupDiv);
+        });
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -596,7 +645,7 @@
 
         const presetGroupKeys = Object.keys(presetGroups).sort(forkGroupCompareAscending);
 
-        const presetVarsContainer = document.getElementById("preset-container");
+        const presetVarsContainer = document.getElementById("preset_vars");
         presetVarsContainer.innerHTML = "";
 
         presetGroupKeys.forEach((groupName) => {
@@ -643,7 +692,7 @@
 
         const configGroupKeys = Object.keys(configGroups).sort(forkGroupCompareAscending);
 
-        const configVarsContainer = document.getElementById("config-container");
+        const configVarsContainer = document.getElementById("config_vars");
         configVarsContainer.innerHTML = "";
 
         configGroupKeys.forEach((groupName) => {
@@ -668,46 +717,14 @@
         });
 
         ///////////////////////////////////////////////////////////////////////////////////////////
-        // Functions
+        // Everything else
         ///////////////////////////////////////////////////////////////////////////////////////////
 
-        const functions = collectFunctions(jsonData.mainnet);
+        addItems(jsonData, "custom_types");
+        addItems(jsonData, "dataclasses");
+        addItems(jsonData, "ssz_objects");
+        addItems(jsonData, "functions");
 
-        const allFunctions = new Set([
-          ...Object.keys(functions.baseVars),
-        ]);
-
-        const functionGroups = {};
-        allFunctions.forEach((baseName) => {
-          const mVal = functions.baseVars[baseName];
-          const grp = mVal.introducingFork;
-          if (!functionGroups[grp]) functionGroups[grp] = [];
-          functionGroups[grp].push(baseName);
-        });
-
-        const functionGroupKeys = Object.keys(functionGroups).sort(forkGroupCompareAscending);
-
-        const functionsContainer = document.getElementById("function-container");
-        functionsContainer.innerHTML = "";
-
-        functionGroupKeys.forEach((groupName) => {
-          const groupDiv = document.createElement("div");
-          groupDiv.className = "phase-group";
-          groupDiv.innerHTML = `<h2>${groupName}</h2>`;
-
-          const fnNames = functionGroups[groupName];
-          fnNames.sort();
-          fnNames.forEach((fnName) => {
-            const row = renderCode(
-              fnName,
-              functions.baseVars[fnName],
-              functions.forkVars[fnName] || [],
-            );
-            groupDiv.appendChild(row);
-          });
-
-          functionsContainer.appendChild(groupDiv);
-        });
       } catch (err) {
         console.error("Error loading data:", err);
       }
