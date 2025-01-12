@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Ethereum Preset Variables</title>
+  <title>Ethereum Consensus Specifications</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -11,7 +11,6 @@
       padding: 20px;
     }
 
-    /* Group container for e.g. PHASE0, ALTAIR, BELLATRIX, etc. */
     .phase-group {
       border: 2px solid #999;
       border-radius: 5px;
@@ -27,7 +26,6 @@
       border-radius: 4px;
     }
 
-    /* Each variable is a <details> block inside its group. */
     .preset-group {
       margin-bottom: 10px;
       border: 1px solid #ccc;
@@ -67,8 +65,6 @@
       background: #f9f9f9;
     }
 
-    /* The badge used for the "last update" fork.
-       We'll set background-color in JS based on fork name */
     .badge {
       display: inline-block;
       color: #fff;
@@ -96,6 +92,7 @@
       background: #ddd;
     }
   </style>
+
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
@@ -137,10 +134,10 @@
   <script>
     let jsonData = {};
 
-    /**
-     * 1) We'll define a color map for known forks.
-     *    If a fork name is not in this map, we pick a fallback color.
-     */
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Shared Helper Functions
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     function getForkColor(forkName) {
       const colors = {
         PHASE0:    "#6c757d", // gray
@@ -150,31 +147,21 @@
         DENEB:     "#e83e8c", // pink
         ELECTRA:   "#ffc107", // yellow
         FULU:      "#c1c107", // greenish yellow
-        // ... add more forks if you want
       };
       const up = forkName.toUpperCase();
       return colors[up] || "#17a2b8"; // fallback = teal
     }
 
-    /**
-     * 2) We skip phases that start with EIP (case-insensitive).
-     */
     function phaseIncluded(phaseName) {
       return !phaseName.toUpperCase().startsWith("EIP")
         && phaseName.toUpperCase() != "WHISK";
     }
 
-    /**
-     * 3) Gather included phases from a preset
-     */
     function getIncludedPhases(presetData) {
       if (!presetData) return [];
       return Object.keys(presetData).filter(phaseIncluded);
     }
 
-    /**
-     * 4) If a var name ends with _FORK (where FORK is in knownForkNames), split.
-     */
     function parseForkName(varName, knownForkNames) {
       const varNameUpper = varName.toUpperCase();
       for (const forkNameUpper of knownForkNames) {
@@ -187,26 +174,222 @@
       return { base: varName, fork: null };
     }
 
-    /**
-     * 5) parseValue: handle [type, value] or raw
-     */
-    function parseValue(rawValue) {
-      if (!rawValue) {
-        return { type: "N/A", value: "N/A" };
-      }
-      if (Array.isArray(rawValue)) {
-        return {
-          type: rawValue[0] ?? "Unknown",
-          value: rawValue[1] ?? "N/A",
-        };
-      }
-      return { type: "Unknown", value: rawValue };
+    function parseValue(fields) {
+      return {
+        type: fields[0] ?? "Unknown",
+        value: fields[1] ?? "N/A",
+      };
     }
 
-    /**
-     * 6) collectPresets from a single preset (mainnet or minimal),
-     *    skipping EIP phases, storing base & fork updates.
-     */
+    function forkGroupCompareAscending(a, b) {
+      if (a === "PHASE0" && b !== "PHASE0") return -1;
+      if (b === "PHASE0" && a !== "PHASE0") return 1;
+      return a.localeCompare(b);
+    }
+
+    function forkGroupCompareDescending(a, b) {
+      if (a === "PHASE0" && b !== "PHASE0") return 1;
+      if (b === "PHASE0" && a !== "PHASE0") return -1;
+      return b.localeCompare(a);
+    }
+
+    // helper: final value for (fk) from base + forks
+    function getForkValue(fk, baseVal, forkArr) {
+      if (!baseVal) return { value: undefined, type: "" };
+      if (fk === baseVal.introducingFork) {
+        return { value: baseVal.value, type: baseVal.type };
+      }
+      if (!forkArr) return { value: undefined, type: "" };
+
+      let foundVal = null;
+      let foundType = null;
+      forkArr.forEach((f) => {
+        if (f.fork === fk) {
+          foundVal = f.value;
+          foundType = f.type;
+        }
+      });
+      if (foundVal === null) {
+        return { value: undefined, type: "" };
+      }
+      return { value: foundVal, type: foundType };
+    }
+
+    function buildSummary(name, mBase, mForks, displayTypeAndValue = true) {
+      if (!mBase && (!mForks || !mForks.length)) {
+        return `${name} = (no mainnet data)`;
+      }
+
+      // Collect all fork names (base + forks)
+      const forkNames = new Set();
+      if (mBase) forkNames.add(mBase.introducingFork);
+      if (mForks) {
+        mForks.forEach((f) => forkNames.add(f.fork));
+      }
+
+      // Sort forks in the desired order (PHASE0 first, then reverse alphabetical)
+      const sortedForks = Array.from(forkNames).sort(forkGroupCompareDescending);
+
+      // Generate badges for all forks
+      const badges = sortedForks
+        .map((fork) => {
+          const color = getForkColor(fork);
+          return `<span class="badge" style="background-color: ${color}">${fork}</span>`;
+        })
+        .join(" ");
+
+      let lastVal = mBase?.value || "N/A";
+      let lastType = mBase?.type || "";
+
+      if (mForks && mForks.length > 0) {
+        // Get value from the most recent fork
+        const newest = mForks[mForks.length - 1];
+        lastVal = newest.value;
+        lastType = newest.type || lastType;
+      }
+
+      if (displayTypeAndValue) {
+        const displayType = lastType && lastType !== "Unknown" ? `: ${lastType} = ` : ` = `;
+        return `${name}${displayType}${lastVal} ${badges}`;
+      } else {
+        return `${name} ${badges}`;
+      }
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Render Variables (Preset & Configuration)
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    function buildRows(mBase, mForks, nBase, nForks) {
+      const allForks = new Set();
+      if (mBase) allForks.add(mBase.introducingFork);
+      (mForks || []).forEach((f) => allForks.add(f.fork));
+
+      if (nBase) allForks.add(nBase.introducingFork);
+      (nForks || []).forEach((f) => allForks.add(f.fork));
+
+      let forkArray = Array.from(allForks);
+      forkArray.sort(forkGroupCompareDescending);
+
+      return forkArray.map((fk) => {
+        const mainnet = getForkValue(fk, mBase, mForks);
+        const minimal = getForkValue(fk, nBase, nForks);
+
+        return {
+          fork: fk,
+          type: mainnet.type,
+          mainnetValue: mainnet.value,
+          minimalValue: minimal.value,
+        };
+      });
+    }
+
+    function buildTable(rows) {
+      if (!rows.length) {
+        return `<p style="color: grey;">No data</p>`;
+      }
+      const rowHTML = rows.map((r) => `
+        <tr>
+          <td>${r.fork}</td>
+          <td>${r.type}</td>
+          <td>${r.mainnetValue}</td>
+          <td>${r.minimalValue}</td>
+        </tr>
+      `).join("");
+
+      return `
+        <table class="fork-table">
+          <thead>
+            <tr>
+              <th>Fork</th>
+              <th>Type</th>
+              <th>Mainnet</th>
+              <th>Minimal</th>
+            </tr>
+          </thead>
+          <tbody>${rowHTML}</tbody>
+        </table>
+      `;
+    }
+
+    function renderVariable(baseName, mBase, mForks, nBase, nForks) {
+      const rows = buildRows(mBase, mForks, nBase, nForks);
+      const table = buildTable(rows);
+      const summaryText = buildSummary(baseName, mBase, mForks);
+
+      const details = document.createElement("details");
+      details.className = "preset-group";
+
+      const summary = document.createElement("summary");
+      summary.innerHTML = `
+        <span class="summary-icon"></span>
+        <span class="collapsed-header">${summaryText}</span>
+      `;
+      details.appendChild(summary);
+
+      const content = document.createElement("div");
+      content.className = "expanded-content";
+      content.innerHTML = table;
+      details.appendChild(content);
+
+      return details;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Render Code (Functions)
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
+    function renderCode(baseName, mBase, mForks) {
+      const summaryText = buildSummary(baseName, mBase, mForks, displayTypeAndValue=false);
+
+      const details = document.createElement("details");
+      details.className = "preset-group";
+
+      const summary = document.createElement("summary");
+      summary.innerHTML = `
+        <span class="summary-icon"></span>
+        <span class="collapsed-header">${summaryText}</span>
+      `;
+      details.appendChild(summary);
+
+      const content = document.createElement("div");
+      content.className = "expanded-content";
+
+      for (const {fork, value} of [...mForks].reverse()) {
+        const section = document.createElement('div');
+        section.innerHTML = `
+          <details class="preset-group">
+            <summary>
+              <span class="summary-icon"></span>
+              <span class="badge" style="background-color: ${getForkColor(fork)}">${fork}</span>
+            </summary>
+            <pre class="line-numbers"><code class="language-python">${value}</code></pre>
+          </details>
+        `;
+        content.appendChild(section);
+      }
+
+      const section = document.createElement('div');
+      section.innerHTML = `
+        <details class="preset-group">
+          <summary>
+            <span class="summary-icon"></span>
+            <span class="badge" style="background-color: ${getForkColor(mBase.introducingFork)}">${mBase.introducingFork}</span>
+          </summary>
+          <pre class="line-numbers"><code class="language-python">${mBase.value}</code></pre>
+        </details>
+      `;
+      content.appendChild(section);
+
+      details.appendChild(content);
+
+      return details;
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Collect Preset Variables
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     function collectPresets(presetData) {
       const baseVars = {};
       const forkVars = {};
@@ -265,6 +448,10 @@
 
       return { baseVars, forkVars };
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Collect Configuration Variables
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     function collectConfigs(configData) {
       const baseVars = {};
@@ -325,6 +512,10 @@
       return { baseVars, forkVars };
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Collect Functions
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+
     function collectFunctions(functionData) {
       const baseVars = {};
       const forkVars = {};
@@ -343,7 +534,6 @@
           const fnBody = phaseObj.functions[fnName];
           const fork = phaseName.toUpperCase();
 
-          // ensure a base
           if (!baseVars[fnName]) {
             baseVars[fnName] = {
               value: fnBody,
@@ -352,7 +542,6 @@
             return;
           }
 
-          // it's a fork update
           if (!forkVars[fnName]) {
             forkVars[fnName] = [];
           }
@@ -374,231 +563,9 @@
       return { baseVars, forkVars };
     }
 
-    /**
-     * 7) Sorting forks newest->oldest (descending).
-     *    PHASE0 goes to bottom, everything else sorted reverse-alphabetical.
-     */
-    function forkGroupCompareDescending(a, b) {
-      // put PHASE0 last
-      if (a === "PHASE0" && b !== "PHASE0") return 1;
-      if (b === "PHASE0" && a !== "PHASE0") return -1;
-      // otherwise reverse alpha
-      return b.localeCompare(a);
-    }
-
-    /**
-     * 8) Build the unified rows for a variable:
-     *    each row is { fork, type, mainnetValue, minimalValue }
-     */
-    function buildUnifiedRows(mBase, mForks, nBase, nForks) {
-      const allForks = new Set();
-      if (mBase) allForks.add(mBase.introducingFork);
-      (mForks || []).forEach((f) => allForks.add(f.fork));
-
-      if (nBase) allForks.add(nBase.introducingFork);
-      (nForks || []).forEach((f) => allForks.add(f.fork));
-
-      let forkArray = Array.from(allForks);
-      forkArray.sort(forkGroupCompareDescending);
-
-      return forkArray.map((fk) => {
-        const mainnet = getForkValue(fk, mBase, mForks);
-        const minimal = getForkValue(fk, nBase, nForks);
-
-        return {
-          fork: fk,
-          type: mainnet.type,
-          mainnetValue: mainnet.value,
-          minimalValue: minimal.value,
-        };
-      });
-    }
-
-    // helper: final value for (fk) from base + forks
-    function getForkValue(fk, baseVal, forkArr) {
-      if (!baseVal) return { value: undefined, type: "" };
-      if (fk === baseVal.introducingFork) {
-        return { value: baseVal.value, type: baseVal.type };
-      }
-      if (!forkArr) return { value: undefined, type: "" };
-
-      let foundVal = null;
-      let foundType = null;
-      forkArr.forEach((f) => {
-        if (f.fork === fk) {
-          foundVal = f.value;
-          foundType = f.type;
-        }
-      });
-      if (foundVal === null) {
-        return { value: undefined, type: "" };
-      }
-      return { value: foundVal, type: foundType };
-    }
-
-    /**
-     * 9) Build an HTML table with columns: Fork | Type | Mainnet | Minimal
-     */
-    function buildConsolidatedTable(rows) {
-      if (!rows.length) {
-        return `<p style="color: grey;">No data</p>`;
-      }
-      const rowHTML = rows.map((r) => `
-        <tr>
-          <td>${r.fork}</td>
-          <td>${r.type}</td>
-          <td>${r.mainnetValue}</td>
-          <td>${r.minimalValue}</td>
-        </tr>
-      `).join("");
-
-      return `
-        <table class="fork-table">
-          <thead>
-            <tr>
-              <th>Fork</th>
-              <th>Type</th>
-              <th>Mainnet</th>
-              <th>Minimal</th>
-            </tr>
-          </thead>
-          <tbody>${rowHTML}</tbody>
-        </table>
-      `;
-    }
-
-    function buildSummaryLine(name, mBase, mForks, displayTypeAndValue = true) {
-      if (!mBase && (!mForks || !mForks.length)) {
-        return `${name} = (no mainnet data)`;
-      }
-
-      // Collect all fork names (base + forks)
-      const forkNames = new Set();
-      if (mBase) forkNames.add(mBase.introducingFork);
-      if (mForks) {
-        mForks.forEach((f) => forkNames.add(f.fork));
-      }
-
-      // Sort forks in the desired order (PHASE0 first, then reverse alphabetical)
-      const sortedForks = Array.from(forkNames).sort(forkGroupCompareDescending);
-
-      // Generate badges for all forks
-      const badges = sortedForks
-        .map((fork) => {
-          const color = getForkColor(fork);
-          return `<span class="badge" style="background-color: ${color}">${fork}</span>`;
-        })
-        .join(" ");
-
-      let lastVal = mBase?.value || "N/A";
-      let lastType = mBase?.type || "";
-
-      if (mForks && mForks.length > 0) {
-        // Get value from the most recent fork
-        const newest = mForks[mForks.length - 1];
-        lastVal = newest.value;
-        lastType = newest.type || lastType;
-      }
-
-      if (displayTypeAndValue) {
-        const displayType = lastType && lastType !== "Unknown" ? `: ${lastType} = ` : ` = `;
-        return `${name}${displayType}${lastVal} ${badges}`;
-      } else {
-        return `${name} ${badges}`;
-      }
-    }
-
-    function renderVariable(baseName, mBase, mForks, nBase, nForks) {
-      const rows = buildUnifiedRows(mBase, mForks, nBase, nForks);
-      const tableHTML = buildConsolidatedTable(rows);
-      const summaryText = buildSummaryLine(baseName, mBase, mForks);
-
-      const details = document.createElement("details");
-      details.className = "preset-group";
-
-      const summary = document.createElement("summary");
-      summary.innerHTML = `
-        <span class="summary-icon"></span>
-        <span class="collapsed-header">${summaryText}</span>
-      `;
-      details.appendChild(summary);
-
-      const content = document.createElement("div");
-      content.className = "expanded-content";
-      content.innerHTML = tableHTML;
-      details.appendChild(content);
-
-      return details;
-    }
-
-    function renderFunction(baseName, mBase, mForks) {
-      const summaryText = buildSummaryLine(baseName, mBase, mForks, displayTypeAndValue=false);
-
-      const details = document.createElement("details");
-      details.className = "preset-group";
-
-      const summary = document.createElement("summary");
-      summary.innerHTML = `
-        <span class="summary-icon"></span>
-        <span class="collapsed-header">${summaryText}</span>
-      `;
-      details.appendChild(summary);
-
-      const content = document.createElement("div");
-      content.className = "expanded-content";
-
-      for (const {fork, value} of [...mForks].reverse()) {
-        const section = document.createElement('div');
-        section.innerHTML = `
-          <details class="preset-group">
-            <summary>
-              <span class="summary-icon"></span>
-              <span class="badge" style="background-color: ${getForkColor(fork)}">${fork}</span>
-            </summary>
-            <pre class="line-numbers"><code class="language-python">${value}</code></pre>
-          </details>
-        `;
-        content.appendChild(section);
-      }
-
-      const section = document.createElement('div');
-      section.innerHTML = `
-        <details class="preset-group">
-          <summary>
-            <span class="summary-icon"></span>
-            <span class="badge" style="background-color: ${getForkColor(mBase.introducingFork)}">${mBase.introducingFork}</span>
-          </summary>
-          <pre class="line-numbers"><code class="language-python">${mBase.value}</code></pre>
-        </details>
-      `;
-      content.appendChild(section);
-
-      details.appendChild(content);
-
-      return details;
-    }
-
-    /**
-     * 12) We'll group variables by earliest introducing fork (between mainnet & minimal).
-     */
-    function pickIntroducingFork(mVal, nVal) {
-      if (mVal && !nVal) return mVal.introducingFork;
-      if (!mVal && nVal) return nVal.introducingFork;
-      if (mVal && nVal) {
-        // whichever is 'earlier' in ascending: PHASE0 first, else alphabetical
-        const a = mVal.introducingFork;
-        const b = nVal.introducingFork;
-        return forkGroupCompareAscending(a, b) <= 0 ? a : b;
-      }
-      return "(UNKNOWN)";
-    }
-
-    // Ascending compare: PHASE0 first, otherwise alpha
-    function forkGroupCompareAscending(a, b) {
-      if (a === "PHASE0" && b !== "PHASE0") return -1;
-      if (b === "PHASE0" && a !== "PHASE0") return 1;
-      return a.localeCompare(b);
-    }
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Render Everything
+    ///////////////////////////////////////////////////////////////////////////////////////////////
 
     async function loadData() {
       try {
@@ -606,34 +573,29 @@
         if (!resp.ok) throw new Error(`HTTP error: ${resp.status}`);
         jsonData = await resp.json();
 
-        /*
-         * Preset Variables:
-         */
+        ///////////////////////////////////////////////////////////////////////////////////////////
+        // Preset Variables
+        ///////////////////////////////////////////////////////////////////////////////////////////
 
-        // Collect from mainnet + minimal
         const mainnetPresets = collectPresets(jsonData.mainnet);
         const minimalPresets = collectPresets(jsonData.minimal);
 
-        // Unify
         const allPresetVars = new Set([
           ...Object.keys(mainnetPresets.baseVars),
           ...Object.keys(minimalPresets.baseVars),
         ]);
 
-        // Group by earliest introducing fork
         const presetGroups = {};
         allPresetVars.forEach((baseName) => {
           const mVal = mainnetPresets.baseVars[baseName];
           const nVal = minimalPresets.baseVars[baseName];
-          const grp = pickIntroducingFork(mVal, nVal);
+          const grp = mVal.introducingFork;
           if (!presetGroups[grp]) presetGroups[grp] = [];
           presetGroups[grp].push(baseName);
         });
 
-        // Sort group names ascending (PHASE0, ALTAIR, BELLATRIX, ...)
         const presetGroupKeys = Object.keys(presetGroups).sort(forkGroupCompareAscending);
 
-        // Start to build section
         const presetVarsContainer = document.getElementById("preset-container");
         presetVarsContainer.innerHTML = "";
 
@@ -658,34 +620,29 @@
           presetVarsContainer.appendChild(groupDiv);
         });
 
-        /*
-         * Configuration Variables:
-         */
+        ///////////////////////////////////////////////////////////////////////////////////////////
+        // Configuration Variables
+        ///////////////////////////////////////////////////////////////////////////////////////////
 
-        // Collect from mainnet + minimal
         const mainnetConfigs = collectConfigs(jsonData.mainnet);
         const minimalConfigs = collectConfigs(jsonData.minimal);
 
-        // Unify
         const allConfigVars = new Set([
           ...Object.keys(mainnetConfigs.baseVars),
           ...Object.keys(minimalConfigs.baseVars),
         ]);
 
-        // Group by earliest introducing fork
         const configGroups = {};
         allConfigVars.forEach((baseName) => {
           const mVal = mainnetConfigs.baseVars[baseName];
           const nVal = minimalConfigs.baseVars[baseName];
-          const grp = pickIntroducingFork(mVal, nVal);
+          const grp = mVal.introducingFork;
           if (!configGroups[grp]) configGroups[grp] = [];
           configGroups[grp].push(baseName);
         });
 
-        // Sort group names ascending (PHASE0, ALTAIR, BELLATRIX, ...)
         const configGroupKeys = Object.keys(configGroups).sort(forkGroupCompareAscending);
 
-        // Start to build section
         const configVarsContainer = document.getElementById("config-container");
         configVarsContainer.innerHTML = "";
 
@@ -710,31 +667,26 @@
           configVarsContainer.appendChild(groupDiv);
         });
 
-        /*
-         * Functions:
-         */
+        ///////////////////////////////////////////////////////////////////////////////////////////
+        // Functions
+        ///////////////////////////////////////////////////////////////////////////////////////////
 
-        // Collect functions
         const functions = collectFunctions(jsonData.mainnet);
 
-        // Unify
         const allFunctions = new Set([
           ...Object.keys(functions.baseVars),
         ]);
 
-        // Group by earliest introducing fork
         const functionGroups = {};
         allFunctions.forEach((baseName) => {
           const mVal = functions.baseVars[baseName];
-          const grp = pickIntroducingFork(mVal, mVal);
+          const grp = mVal.introducingFork;
           if (!functionGroups[grp]) functionGroups[grp] = [];
           functionGroups[grp].push(baseName);
         });
 
-        // Sort group names ascending (PHASE0, ALTAIR, BELLATRIX, ...)
         const functionGroupKeys = Object.keys(functionGroups).sort(forkGroupCompareAscending);
 
-        // Start to build section
         const functionsContainer = document.getElementById("function-container");
         functionsContainer.innerHTML = "";
 
@@ -746,7 +698,7 @@
           const fnNames = functionGroups[groupName];
           fnNames.sort();
           fnNames.forEach((fnName) => {
-            const row = renderFunction(
+            const row = renderCode(
               fnName,
               functions.baseVars[fnName],
               functions.forkVars[fnName] || [],
@@ -756,7 +708,6 @@
 
           functionsContainer.appendChild(groupDiv);
         });
-
       } catch (err) {
         console.error("Error loading data:", err);
       }
