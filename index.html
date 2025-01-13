@@ -509,10 +509,11 @@
       const content = document.createElement("div");
       content.className = "expanded-content";
 
+      var openOrNot = "open";
       for (const {fork, value} of [...mForks].reverse()) {
         const section = document.createElement('div');
         section.innerHTML = `
-          <details class="preset-group">
+          <details ${openOrNot} class="preset-group">
             <summary>
               <span class="summary-icon"></span>
               <span class="badge" style="background-color: ${getForkColor(fork)}">${fork}</span>
@@ -521,6 +522,7 @@
           </details>
         `;
         content.appendChild(section);
+        openOrNot = "";
       }
 
       details.appendChild(content);
