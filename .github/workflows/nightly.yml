@@ -15,11 +15,6 @@ jobs:
         with:
           ref: main
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
       - name: Clone Consensus Specs
         run: |
           git clone https://github.com/ethereum/consensus-specs.git
@@ -32,7 +27,7 @@ jobs:
       - name: Build Pyspec JSON
         run: |
           cd consensus-specs
-          make pyspec
+          make eth2spec
           cp pyspec.json ../pyspec.json
 
       - name: Commit and Push Changes
