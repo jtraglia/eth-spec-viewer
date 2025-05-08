@@ -4,31 +4,171 @@
   <meta charset="UTF-8" />
   <title>Ethereum Consensus Specifications</title>
   <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #000000;
+      --header-bg: #ddd;
+      --card-bg: #fafafa;
+      --card-border: #999;
+      --details-bg: #eee;
+      --details-border: #ccc;
+      --expanded-bg: #f9f9f9;
+      --table-header-bg: #ddd;
+      --table-border: #bbb;
+      --search-bg: #f1f1f1;
+      --search-border: #ccc;
+      --toggle-bg: #f0f0f0;
+      --toggle-border: #ccc;
+      --button-bg: #f0f0f0;
+      --button-hover: #e0e0e0;
+      --button-active: #d0d0d0;
+      --filter-bg: #f5f5f5;
+    }
+
+    [data-theme="dark"] {
+      --bg-color: #1e1e1e;
+      --text-color: #e0e0e0;
+      --header-bg: #333;
+      --card-bg: #2a2a2a;
+      --card-border: #444;
+      --details-bg: #333;
+      --details-border: #555;
+      --expanded-bg: #252525;
+      --table-header-bg: #333;
+      --table-border: #555;
+      --search-bg: #333;
+      --search-border: #555;
+      --toggle-bg: #333;
+      --toggle-border: #555;
+      --button-bg: #404040;
+      --button-hover: #505050;
+      --button-active: #606060;
+      --filter-bg: #2d2d2d;
+    }
+
     body {
       font-family: Arial, sans-serif;
       max-width: 100%;
       margin: 0;
       padding: 20px;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .header-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .controls-container {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin: 15px 0;
+    }
+
+    .search-container {
+      display: flex;
+      flex: 1;
+      max-width: 500px;
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    #searchInput {
+      width: 100%;
+      padding: 10px 15px;
+      border: 1px solid var(--search-border);
+      border-radius: 4px;
+      font-size: 16px;
+      background-color: var(--search-bg);
+      color: var(--text-color);
+    }
+
+    #searchClear {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 16px;
+    }
+
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      margin-right: 10px;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+      margin: 0 10px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: var(--toggle-bg);
+      border: 1px solid var(--toggle-border);
+      border-radius: 24px;
+      transition: .4s;
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 2px;
+      background-color: var(--text-color);
+      border-radius: 50%;
+      transition: .4s;
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(26px);
     }
 
     .phase-group {
-      border: 2px solid #999;
+      border: 2px solid var(--card-border);
       border-radius: 5px;
       margin-bottom: 20px;
       padding: 10px;
-      background: #fafafa;
+      background: var(--card-bg);
     }
     .phase-group h2 {
       margin-top: 0;
       margin-bottom: 10px;
-      background: #ddd;
+      background: var(--header-bg);
       padding: 8px;
       border-radius: 4px;
     }
 
     .preset-group {
       margin-bottom: 10px;
-      border: 1px solid #ccc;
+      border: 1px solid var(--details-border);
       border-radius: 4px;
       overflow: hidden;
     }
@@ -40,9 +180,9 @@
       cursor: pointer;
       list-style: none;
       padding: 10px;
-      background: #eee;
+      background: var(--details-bg);
       font-weight: bold;
-      border-bottom: 1px solid #ccc;
+      border-bottom: 1px solid var(--details-border);
       outline: none; /* remove outline on click */
     }
     summary::-webkit-details-marker {
@@ -62,7 +202,7 @@
     }
     .expanded-content {
       padding: 10px;
-      background: #f9f9f9;
+      background: var(--expanded-bg);
     }
 
     .badge {
@@ -80,16 +220,123 @@
       max-width: 800px;
       border-collapse: collapse;
       margin-top: 10px;
-      border: 1px solid #bbb;
+      border: 1px solid var(--table-border);
     }
     .fork-table th,
     .fork-table td {
-      border: 1px solid #bbb;
+      border: 1px solid var(--table-border);
       padding: 5px;
       text-align: left;
     }
     .fork-table th {
-      background: #ddd;
+      background: var(--table-header-bg);
+    }
+
+    .filter-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+
+    .filter-select {
+      padding: 8px 12px;
+      border-radius: 4px;
+      border: 1px solid var(--search-border);
+      background-color: var(--search-bg);
+      color: var(--text-color);
+    }
+
+    .filter-button {
+      padding: 8px 15px;
+      border-radius: 4px;
+      border: 1px solid var(--button-bg);
+      background-color: var(--button-bg);
+      cursor: pointer;
+      color: var(--text-color);
+    }
+
+    .filter-button:hover {
+      background-color: var(--button-hover);
+    }
+
+    .filter-button:active {
+      background-color: var(--button-active);
+    }
+
+    .filter-badge {
+      display: inline-flex;
+      align-items: center;
+      background-color: var(--filter-bg);
+      border-radius: 20px;
+      padding: 5px 12px;
+      margin: 5px;
+      font-size: 0.9em;
+    }
+
+    .filter-badge-remove {
+      cursor: pointer;
+      margin-left: 8px;
+      font-weight: bold;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .share-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: var(--text-color);
+      margin-left: 5px;
+      vertical-align: middle;
+    }
+
+    .show-diff-checkbox {
+      margin-left: 8px;
+    }
+
+    .diff-highlight-added {
+      background-color: rgba(0, 255, 0, 0.2);
+    }
+
+    .diff-highlight-removed {
+      background-color: rgba(255, 0, 0, 0.2);
+      text-decoration: line-through;
+    }
+
+    [data-theme="dark"] .diff-highlight-added {
+      background-color: rgba(0, 100, 0, 0.4);
+    }
+
+    [data-theme="dark"] .diff-highlight-removed {
+      background-color: rgba(100, 0, 0, 0.4);
+    }
+
+    .no-results {
+      padding: 20px;
+      text-align: center;
+      font-style: italic;
+      color: var(--text-color);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      .header-container {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .controls-container {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      
+      .search-container {
+        max-width: 100%;
+      }
     }
   </style>
 
@@ -102,10 +349,78 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-  <h1>Ethereum Consensus Specifications</h1>
+  <div class="header-container">
+    <h1>Ethereum Consensus Specifications</h1>
+    
+    <div class="toggle-container">
+      <i class="fas fa-sun"></i>
+      <label class="toggle-switch">
+        <input type="checkbox" id="darkModeToggle">
+        <span class="toggle-slider"></span>
+      </label>
+      <i class="fas fa-moon"></i>
+    </div>
+  </div>
+
+  <div class="controls-container">
+    <div class="search-container">
+      <input type="text" id="searchInput" placeholder="Search specifications...">
+      <button id="searchClear" class="hidden">&times;</button>
+    </div>
+    
+    <div class="filter-container">
+      <select id="forkFilter" class="filter-select">
+        <option value="">Filter by fork...</option>
+        <option value="PHASE0">Phase 0</option>
+        <option value="ALTAIR">Altair</option>
+        <option value="BELLATRIX">Bellatrix</option>
+        <option value="CAPELLA">Capella</option>
+        <option value="DENEB">Deneb</option>
+        <option value="ELECTRA">Electra</option>
+        <option value="FULU">Fulu</option>
+      </select>
+      
+      <select id="changeFilter" class="filter-select">
+        <option value="">Filter by changes...</option>
+        <option value="PHASE0">Changed in Phase 0</option>
+        <option value="ALTAIR">Changed in Altair</option>
+        <option value="BELLATRIX">Changed in Bellatrix</option>
+        <option value="CAPELLA">Changed in Capella</option>
+        <option value="DENEB">Changed in Deneb</option>
+        <option value="ELECTRA">Changed in Electra</option>
+        <option value="FULU">Changed in Fulu</option>
+      </select>
+      
+      <select id="typeFilter" class="filter-select">
+        <option value="">Filter by type...</option>
+        <option value="constant_vars">Constants</option>
+        <option value="preset_vars">Preset Variables</option>
+        <option value="config_vars">Configuration Variables</option>
+        <option value="custom_types">Custom Types</option>
+        <option value="dataclasses">Dataclasses</option>
+        <option value="ssz_objects">SSZ Objects</option>
+        <option value="functions">Functions</option>
+      </select>
+      
+      <button id="applyFilters" class="filter-button">Apply Filters</button>
+      <button id="clearFilters" class="filter-button">Clear Filters</button>
+    </div>
+  </div>
+  
+  <div id="activeFilters" class="filter-container"></div>
+  
+  <div id="toggleDiffContainer" class="toggle-container hidden">
+    <label>
+      Show diff between upgrades
+      <input type="checkbox" id="showDiffToggle" class="show-diff-checkbox">
+    </label>
+  </div>
 
   <details>
     <summary>
@@ -163,8 +478,21 @@
     <div id="functions"></div>
   </details>
 
+  <div id="noResults" class="no-results hidden">No results found for your search criteria.</div>
+
   <script>
     let jsonData = {};
+    
+    // Map to store all items by their ID (for direct linking)
+    let itemsById = new Map();
+    
+    // Currently active filters
+    let activeFilters = {
+      search: '',
+      fork: '',
+      change: '',
+      type: '',
+    };
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Shared Helper Functions
@@ -225,6 +553,51 @@
       return b.localeCompare(a);
     }
 
+    // Generate a unique ID for an item
+    function generateItemId(category, name) {
+      // Convert to URL-friendly format
+      const urlName = name.replace(/[^\w-]+/g, '_');
+      return `${category}-${urlName}`;
+    }
+
+    // Create share link for an item
+    function createShareLink(itemId) {
+      const url = new URL(window.location.href);
+      url.hash = itemId;
+      return url.href;
+    }
+
+    // Highlight diffs between two pieces of text
+    function highlightDiff(oldText, newText) {
+      if (!oldText || !newText) return newText;
+      
+      const oldLines = oldText.split('\n');
+      const newLines = newText.split('\n');
+      
+      // Highlight entire lines that are different
+      const result = [];
+      const maxLines = Math.max(oldLines.length, newLines.length);
+      
+      for (let i = 0; i < maxLines; i++) {
+        if (i >= newLines.length) {
+          // Line was removed
+          result.push(`<div class="diff-highlight-removed">${oldLines[i]}</div>`);
+        } else if (i >= oldLines.length) {
+          // Line was added
+          result.push(`<div class="diff-highlight-added">${newLines[i]}</div>`);
+        } else if (oldLines[i] !== newLines[i]) {
+          // Line was changed
+          result.push(`<div class="diff-highlight-removed">${oldLines[i]}</div>`);
+          result.push(`<div class="diff-highlight-added">${newLines[i]}</div>`);
+        } else {
+          // Line is the same
+          result.push(newLines[i]);
+        }
+      }
+      
+      return result.join('\n');
+    }
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Variables (Constants, Presets, Configurations)
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -274,18 +647,32 @@
       });
     }
 
-    function buildTable(rows) {
+    function buildTable(rows, showDiff = false) {
       if (!rows.length) {
         return `<p style="color: grey;">No data</p>`;
       }
-      const rowHTML = rows.map((r) => `
-        <tr>
-          <td>${r.fork}</td>
-          <td>${r.type}</td>
-          <td>${r.mainnetValue}</td>
-          <td>${r.minimalValue}</td>
-        </tr>
-      `).join("");
+      
+      // Create rows with diff highlighting if requested
+      const rowHTML = rows.map((r, index) => {
+        let mainnetValue = r.mainnetValue;
+        let minimalValue = r.minimalValue;
+        
+        // If showing diffs and we have a previous row to compare with
+        if (showDiff && index < rows.length - 1) {
+          const prevRow = rows[index + 1]; // Since rows are sorted in descending order
+          mainnetValue = highlightDiff(prevRow.mainnetValue, mainnetValue);
+          minimalValue = highlightDiff(prevRow.minimalValue, minimalValue);
+        }
+        
+        return `
+          <tr>
+            <td>${r.fork}</td>
+            <td>${r.type}</td>
+            <td>${mainnetValue}</td>
+            <td>${minimalValue}</td>
+          </tr>
+        `;
+      }).join("");
 
       return `
         <table class="fork-table">
@@ -334,7 +721,7 @@
       /* If there's a large value (eg KZG_SETUP) don't show the value */
       if (String(lastVal).length > 64) {
         displayTypeAndValue = false;
-      }
+      }      
 
       if (displayTypeAndValue) {
         const displayType = lastType && lastType !== "Unknown" ? `: ${lastType} = ` : ` = `;
@@ -344,18 +731,31 @@
       }
     }
 
-    function renderVariable(baseName, mBase, mForks, nBase, nForks) {
+    function renderVariable(baseName, mBase, mForks, nBase, nForks, category) {
       const rows = buildRows(mBase, mForks, nBase, nForks);
-      const table = buildTable(rows);
+      const showDiff = document.getElementById('showDiffToggle')?.checked || false;
+      const table = buildTable(rows, showDiff);
       const summaryText = buildVariableSummary(baseName, mBase, mForks);
-
+      
+      // Generate a unique ID for this item
+      const itemId = generateItemId(category, baseName);
+      
       const details = document.createElement("details");
       details.className = "preset-group";
+      details.id = itemId;
+    
+      // Save reference to this item for direct linking
+      itemsById.set(itemId, details);
 
       const summary = document.createElement("summary");
+      const shareLink = createShareLink(itemId);
+      
       summary.innerHTML = `
         <span class="summary-icon"></span>
         <span class="collapsed-header">${summaryText}</span>
+        <button class="share-button" data-link="${shareLink}" title="Copy link to this item">
+          <i class="fas fa-link"></i>
+        </button>
       `;
       details.appendChild(summary);
 
@@ -363,7 +763,28 @@
       content.className = "expanded-content";
       content.innerHTML = table;
       details.appendChild(content);
-
+      
+      // Add data attributes for filtering
+      details.dataset.name = baseName.toLowerCase();
+      details.dataset.category = category;
+      
+      // Add fork data for filtering
+      if (mBase) {
+        details.dataset.introducingFork = mBase.introducingFork;
+      }
+      
+      const forkSet = new Set();
+      if (mBase) forkSet.add(mBase.introducingFork);
+      if (mForks) {
+        mForks.forEach(f => forkSet.add(f.fork));
+      }
+      details.dataset.forks = Array.from(forkSet).join(' ');
+      
+      // Add changes data for filtering
+      if (mForks && mForks.length > 0) {
+        details.dataset.changedInForks = mForks.map(f => f.fork).join(' ');
+      }
+      
       return details;
     }
 
@@ -432,7 +853,7 @@
         allPresetVars.forEach((baseName) => {
           const mVal = mainnetPresets.baseVars[baseName];
           const nVal = minimalPresets.baseVars[baseName];
-          const grp = mVal.introducingFork;
+          const grp = mVal?.introducingFork || nVal?.introducingFork;
           if (!presetGroups[grp]) presetGroups[grp] = [];
           presetGroups[grp].push(baseName);
         });
@@ -455,7 +876,8 @@
               mainnetPresets.baseVars[vName],
               mainnetPresets.forkVars[vName] || [],
               minimalPresets.baseVars[vName],
-              minimalPresets.forkVars[vName] || []
+              minimalPresets.forkVars[vName] || [],
+              fieldName
             );
             groupDiv.appendChild(row);
           });
@@ -485,7 +907,7 @@
         const newest = mForks[mForks.length - 1];
         lastVal = newest.value;
       }
-
+      
       if (displayValueInSummary) {
         return `${name} = ${lastVal} ${badges}`;
       } else {
@@ -493,32 +915,59 @@
       }
     }
 
-    function renderItem(baseName, mForks, displayValueInSummary) {
+    function renderItem(baseName, mForks, displayValueInSummary, category) {
       const summaryText = buildItemSummary(baseName, mForks, displayValueInSummary);
+      
+      // Generate a unique ID for this item
+      const itemId = generateItemId(category, baseName);
 
       const details = document.createElement("details");
       details.className = "preset-group";
+      details.id = itemId;
+      
+      // Save reference to this item for direct linking
+      itemsById.set(itemId, details);
 
       const summary = document.createElement("summary");
+      const shareLink = createShareLink(itemId);
+      
       summary.innerHTML = `
         <span class="summary-icon"></span>
         <span class="collapsed-header">${summaryText}</span>
+        <button class="share-button" data-link="${shareLink}" title="Copy link to this item">
+          <i class="fas fa-link"></i>
+        </button>
       `;
       details.appendChild(summary);
 
       const content = document.createElement("div");
       content.className = "expanded-content";
+      
+      // Add show diff toggle
+      const showDiff = document.getElementById('showDiffToggle')?.checked || false;
 
       var openOrNot = "open";
       for (const {fork, value} of [...mForks].reverse()) {
         const section = document.createElement('div');
+        
+        // If showing diffs and this isn't the last fork value, compare with next value
+        let displayValue = value;
+        if (showDiff && mForks.length > 1) {
+          // Find the next newer fork if any
+          const forkIndex = mForks.findIndex(f => f.fork === fork);
+          if (forkIndex > 0) {
+            const olderFork = mForks[forkIndex - 1];
+            displayValue = highlightDiff(olderFork.value, value);
+          }
+        }
+        
         section.innerHTML = `
           <details ${openOrNot} class="preset-group">
             <summary>
               <span class="summary-icon"></span>
               <span class="badge" style="background-color: ${getForkColor(fork)}">${fork}</span>
             </summary>
-            <pre class="line-numbers"><code class="language-python">${value}</code></pre>
+            <pre class="line-numbers"><code class="language-python">${displayValue}</code></pre>
           </details>
         `;
         content.appendChild(section);
@@ -526,7 +975,22 @@
       }
 
       details.appendChild(content);
-
+      
+      // Add data attributes for filtering
+      details.dataset.name = baseName.toLowerCase();
+      details.dataset.category = category;
+      
+      // Add fork data for filtering
+      if (mForks && mForks.length > 0) {
+        details.dataset.introducingFork = mForks[0].fork;
+        details.dataset.forks = mForks.map(f => f.fork).join(' ');
+      }
+      
+      // Add changes data for filtering
+      if (mForks && mForks.length > 1) {
+        details.dataset.changedInForks = mForks.slice(1).map(f => f.fork).join(' ');
+      }
+      
       return details;
     }
 
@@ -570,15 +1034,317 @@
         });
 
         const itemContainer = document.getElementById(fieldName);
+        itemContainer.innerHTML = "";
+        
         Object.keys(itemGroups).sort(forkGroupCompareAscending).forEach((groupName) => {
           const groupDiv = document.createElement("div");
           groupDiv.className = "phase-group";
           groupDiv.innerHTML = `<h2>${groupName}</h2>`;
           itemGroups[groupName].sort().forEach((itemName) => {
-            groupDiv.appendChild(renderItem(itemName, items[itemName], displayValueInSummary));
+            groupDiv.appendChild(renderItem(itemName, items[itemName], displayValueInSummary, fieldName));
           });
           itemContainer.appendChild(groupDiv);
         });
+    }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Search and Filtering
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    
+    function applyFilters() {
+      const searchInput = document.getElementById('searchInput').value.toLowerCase();
+      const forkFilter = document.getElementById('forkFilter').value;
+      const changeFilter = document.getElementById('changeFilter').value;
+      const typeFilter = document.getElementById('typeFilter').value;
+      
+      activeFilters = {
+        search: searchInput,
+        fork: forkFilter,
+        change: changeFilter,
+        type: typeFilter,
+      };
+      
+      updateActiveFiltersDisplay();
+      filterItems();
+      
+      // Show/hide diff toggle based on whether we're filtering for a single type
+      const toggleDiffContainer = document.getElementById('toggleDiffContainer');
+      if (typeFilter) {
+        toggleDiffContainer.classList.remove('hidden');
+      } else {
+        toggleDiffContainer.classList.add('hidden');
+      }
+    }
+    
+    function clearFilters() {
+      document.getElementById('searchInput').value = '';
+      document.getElementById('forkFilter').value = '';
+      document.getElementById('changeFilter').value = '';
+      document.getElementById('typeFilter').value = '';
+      document.getElementById('searchClear').classList.add('hidden');
+      
+      activeFilters = {
+        search: '',
+        fork: '',
+        change: '',
+        type: ''
+      };
+      
+      updateActiveFiltersDisplay();
+      filterItems();
+      
+      document.getElementById('toggleDiffContainer').classList.add('hidden');
+    }
+    
+    function updateActiveFiltersDisplay() {
+      const container = document.getElementById('activeFilters');
+      container.innerHTML = '';
+      
+      let hasFilters = false;
+      
+      if (activeFilters.search) {
+        container.appendChild(createFilterBadge('Search', activeFilters.search));
+        hasFilters = true;
+      }
+      
+      if (activeFilters.fork) {
+        container.appendChild(createFilterBadge('Fork', activeFilters.fork));
+        hasFilters = true;
+      }
+      
+      if (activeFilters.change) {
+        container.appendChild(createFilterBadge('Changed in', activeFilters.change));
+        hasFilters = true;
+      }
+      
+      if (activeFilters.type) {
+        let displayType = activeFilters.type;
+        switch(activeFilters.type) {
+          case 'constant_vars': displayType = 'Constants'; break;
+          case 'preset_vars': displayType = 'Preset Variables'; break;
+          case 'config_vars': displayType = 'Configuration Variables'; break;
+          case 'custom_types': displayType = 'Custom Types'; break;
+          case 'dataclasses': displayType = 'Dataclasses'; break;
+          case 'ssz_objects': displayType = 'SSZ Objects'; break;
+          case 'functions': displayType = 'Functions'; break;
+        }
+        container.appendChild(createFilterBadge('Type', displayType));
+        hasFilters = true;
+      }
+    }
+    
+    function createFilterBadge(label, value) {
+      const badge = document.createElement('div');
+      badge.className = 'filter-badge';
+      badge.innerHTML = `${label}: ${value} <span class="filter-badge-remove">×</span>`;
+      
+      badge.querySelector('.filter-badge-remove').addEventListener('click', () => {
+        // Remove this specific filter
+        switch(label) {
+          case 'Search': 
+            document.getElementById('searchInput').value = '';
+            activeFilters.search = ''; 
+            document.getElementById('searchClear').classList.add('hidden');
+            break;
+          case 'Fork': 
+            document.getElementById('forkFilter').value = '';
+            activeFilters.fork = ''; 
+            break;
+          case 'Changed in': 
+            document.getElementById('changeFilter').value = '';
+            activeFilters.change = ''; 
+            break;
+          case 'Type': 
+            document.getElementById('typeFilter').value = '';
+            activeFilters.type = ''; 
+            document.getElementById('toggleDiffContainer').classList.add('hidden');
+            break;
+        }
+        
+        updateActiveFiltersDisplay();
+        filterItems();
+      });
+      
+      return badge;
+    }
+    
+    function filterItems() {
+      const allSections = document.querySelectorAll('details.preset-group');
+      const sectionContainers = document.querySelectorAll('details > div');
+      let visibleCount = 0;
+      
+      // If we're filtering by type, only show that section and hide others
+      if (activeFilters.type) {
+        document.querySelectorAll('body > details').forEach(section => {
+          if (section.querySelector('div').id === activeFilters.type) {
+            section.removeAttribute('open');
+            section.setAttribute('open', 'true');
+          } else {
+            section.removeAttribute('open');
+          }
+        });
+      }
+      
+      allSections.forEach(section => {
+        let isVisible = true;
+        
+        // Search filter
+        if (activeFilters.search && !section.dataset.name?.toLowerCase().includes(activeFilters.search)) {
+          isVisible = false;
+        }
+        
+        // Fork filter
+        if (activeFilters.fork && !section.dataset.forks?.includes(activeFilters.fork)) {
+          isVisible = false;
+        }
+        
+        // Change filter
+        if (activeFilters.change && !section.dataset.changedInForks?.includes(activeFilters.change)) {
+          isVisible = false;
+        }
+        
+        // Type filter
+        if (activeFilters.type && section.dataset.category !== activeFilters.type) {
+          isVisible = false;
+        }
+        
+        section.classList.toggle('hidden', !isVisible);
+        if (isVisible) visibleCount++;
+      });
+      
+      // Update parent container visibility
+      sectionContainers.forEach(container => {
+        // Get all visible items in this container
+        const visibleItems = container.querySelectorAll('details.preset-group:not(.hidden)');
+        
+        // Get the parent phase-groups
+        const phaseGroups = container.querySelectorAll('.phase-group');
+        
+        // For each phase-group, hide if it has no visible children
+        phaseGroups.forEach(group => {
+          const hasVisibleChildren = group.querySelectorAll('details.preset-group:not(.hidden)').length > 0;
+          group.classList.toggle('hidden', !hasVisibleChildren);
+        });
+      });
+      
+      // Show/hide no results message
+      document.getElementById('noResults').classList.toggle('hidden', visibleCount > 0);
+    }
+    
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Dark Mode
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    
+    function initDarkMode() {
+      const darkModeToggle = document.getElementById('darkModeToggle');
+      
+      // Check for saved preference or system preference
+      const savedTheme = localStorage.getItem('theme');
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      
+      // Set initial state
+      if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        darkModeToggle.checked = true;
+      }
+      
+      // Toggle dark mode
+      darkModeToggle.addEventListener('change', function() {
+        if (this.checked) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+          localStorage.setItem('theme', 'dark');
+        } else {
+          document.documentElement.removeAttribute('data-theme');
+          localStorage.setItem('theme', 'light');
+        }
+        
+        // Refresh syntax highlighting
+        if (typeof Prism !== 'undefined') {
+          Prism.highlightAll();
+        }
+      });
+    }
+    
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Direct linking to items
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    
+    function handleDirectLinks() {
+      // Check if URL has a hash
+      if (window.location.hash) {
+        const itemId = window.location.hash.substring(1);
+        
+        // After the data is loaded and rendered
+        setTimeout(() => {
+          const item = document.getElementById(itemId);
+          if (item) {
+            // Open all parent details elements
+            let parent = item.parentElement;
+            while (parent) {
+              if (parent.tagName === 'DETAILS') {
+                parent.setAttribute('open', 'true');
+              }
+              parent = parent.parentElement;
+            }
+            
+            // Open the item itself
+            item.setAttribute('open', 'true');
+            
+            // Scroll to the item (with a slight delay to let rendering complete)
+            setTimeout(() => {
+              item.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+          }
+        }, 500);
+      }
+    }
+    
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // Event Listeners
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    
+    function initEventListeners() {
+      // Search input event
+      const searchInput = document.getElementById('searchInput');
+      const searchClear = document.getElementById('searchClear');
+      
+      searchInput.addEventListener('input', function() {
+        const hasText = this.value.length > 0;
+        searchClear.classList.toggle('hidden', !hasText);
+        applyFilters();
+      });
+      
+      searchClear.addEventListener('click', function() {
+        searchInput.value = '';
+        this.classList.add('hidden');
+        applyFilters();
+      });
+      
+      // Filter buttons
+      document.getElementById('applyFilters').addEventListener('click', applyFilters);
+      document.getElementById('clearFilters').addEventListener('click', clearFilters);
+      
+      // Diff toggle
+      document.getElementById('showDiffToggle').addEventListener('change', function() {
+        loadData(); // Reload and re-render to apply diff highlighting
+      });
+      
+      // Share button click event (delegation)
+      document.addEventListener('click', function(e) {
+        if (e.target.closest('.share-button')) {
+          const shareButton = e.target.closest('.share-button');
+          const link = shareButton.dataset.link;
+          
+          // Copy link to clipboard
+          navigator.clipboard.writeText(link).then(() => {
+            // Show a brief visual confirmation
+            shareButton.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => {
+              shareButton.innerHTML = '<i class="fas fa-link"></i>';
+            }, 1000);
+          });
+        }
+      });
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -598,15 +1364,90 @@
         addItems(jsonData, "dataclasses");
         addItems(jsonData, "ssz_objects");
         addItems(jsonData, "functions");
+        
+        // Apply any active filters
+        filterItems();
+        
+        // Handle direct links
+        handleDirectLinks();
 
       } catch (err) {
         console.error("Error loading data:", err);
+        // Display error message to user
+        document.getElementById('noResults').innerHTML = `
+          <p>Error loading specification data: ${err.message}</p>
+          <p>Make sure pyspec.json is available in the same directory as this HTML file.</p>
+        `;
+        document.getElementById('noResults').classList.remove('hidden');
       }
 
       Prism.highlightAll();
     }
 
-    loadData();
-  </script>
-</body>
-</html>
+    // Fallback data function to show example data if JSON loading fails
+    function loadFallbackData() {
+      console.log("Loading fallback data");
+      
+      // Example data structure that matches expected format
+      const fallbackData = {
+        mainnet: {
+          PHASE0: {
+            constant_vars: {
+              "EXAMPLE_CONSTANT": ["uint64", "1234"],
+              "ANOTHER_CONSTANT": ["string", "example value"]
+            },
+            preset_vars: {
+              "EXAMPLE_PRESET": ["uint64", "5678"]
+            },
+            config_vars: {
+              "EXAMPLE_CONFIG": ["string", "test"]
+            },
+            custom_types: {
+              "ExampleType": "type ExampleType = uint64"
+            },
+            dataclasses: {
+              "ExampleClass": "class ExampleClass(Container):\n    field1: uint64\n    field2: boolean"
+            },
+            ssz_objects: {
+              "ExampleSSZ": "class ExampleSSZ(Container):\n    field1: uint64\n    field2: Bytes32"
+            },
+            functions: {
+              "example_function": "def example_function(x: uint64) -> uint64:\n    return x * 2"
+            }
+          }
+        },
+        minimal: {
+          PHASE0: {
+            constant_vars: {
+              "EXAMPLE_CONSTANT": ["uint64", "1234"],
+            },
+            preset_vars: {
+              "EXAMPLE_PRESET": ["uint64", "1234"]
+            }
+          }
+        }
+      };
+      
+      // If fetch fails to load data after 3 seconds, use fallback data
+      setTimeout(() => {
+        if (Object.keys(jsonData).length === 0) {
+          console.log("Using fallback data");
+          jsonData = fallbackData;
+          
+          addVariables(jsonData, "constant_vars");
+          addVariables(jsonData, "preset_vars");
+          addVariables(jsonData, "config_vars");
+          addItems(jsonData, "custom_types", displayValueInSummary=true);
+          addItems(jsonData, "dataclasses");
+          addItems(jsonData, "ssz_objects");
+          addItems(jsonData, "functions");
+          
+          // Apply any active filters
+          filterItems();
+          
+          // Add notice about fallback data
+          const notice = document.createElement('div');
+          notice.style.background = '#ffe6cc';
+          notice.style.color = '#663c00';
+          notice.style.padding = '10px';
+          notice.style.marginBottom = '20px';
