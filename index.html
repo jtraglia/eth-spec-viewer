@@ -995,7 +995,13 @@
       // Add show diff toggle
       const showDiff = document.getElementById('showDiffToggle')?.checked || false;
 
+      // Store fork details in a more accessible way for filtering
+      let forkDetails = [];
+      
+      // Initially, the first fork is open, others are closed
       var openOrNot = "open";
+      
+      // Add each fork's code block
       for (const {fork, value} of [...mForks].reverse()) {
         const section = document.createElement('div');
         
@@ -1010,8 +1016,9 @@
           }
         }
         
-        section.innerHTML = `
-          <details ${openOrNot} class="preset-group">
+        // Explicitly create the fork details element to track it
+        const forkDetailHTML = `
+          <details ${openOrNot} class="preset-group fork-code-block" data-fork="${fork}">
             <summary>
               <span class="summary-icon"></span>
               <span class="badge" style="background-color: ${getForkColor(fork)}">${fork}</span>
@@ -1019,7 +1026,14 @@
             <pre class="line-numbers"><code class="language-python">${displayValue}</code></pre>
           </details>
         `;
+        
+        section.innerHTML = forkDetailHTML;
         content.appendChild(section);
+        
+        // Keep track of this fork detail for filtering
+        forkDetails.push(fork);
+        
+        // Only the first one is open by default
         openOrNot = "";
       }
 
@@ -1033,6 +1047,8 @@
       if (mForks && mForks.length > 0) {
         details.dataset.introducingFork = mForks[0].fork;
         details.dataset.forks = mForks.map(f => f.fork).join(' ');
+        // Store available fork blocks
+        details.dataset.forkBlocks = JSON.stringify(forkDetails);
       }
       
       // Add changes data for filtering
@@ -1233,59 +1249,114 @@
     }
     
     function filterItems() {
-      const allSections = document.querySelectorAll('details.preset-group');
-      const sectionContainers = document.querySelectorAll('details > div');
-      let visibleCount = 0;
-      
-      // If we're filtering by type, only show that section and hide others
+      // 1. First handle the top-level category sections (Constants, Functions, etc.)
       if (activeFilters.type) {
+        // Only open the type filter's section
         document.querySelectorAll('body > details').forEach(section => {
           if (section.querySelector('div').id === activeFilters.type) {
-            section.removeAttribute('open');
             section.setAttribute('open', 'true');
           } else {
             section.removeAttribute('open');
           }
         });
+      } else {
+        // Don't change the open/closed state of sections when not filtering by type
       }
       
+      // 2. Get all item sections (individual function/constant/etc. items)
+      const allSections = document.querySelectorAll('details.preset-group:not(.fork-code-block)');
+      const sectionContainers = document.querySelectorAll('details > div');
+      let visibleCount = 0;
+      
+      // 3. Apply filters to each item
       allSections.forEach(section => {
         let isVisible = true;
         
-        // Search filter
+        // Check each filter
         if (activeFilters.search && !section.dataset.name?.toLowerCase().includes(activeFilters.search)) {
           isVisible = false;
         }
         
-        // Fork filter
         if (activeFilters.fork && !section.dataset.forks?.includes(activeFilters.fork)) {
           isVisible = false;
         }
         
-        // Change filter
         if (activeFilters.change && !section.dataset.changedInForks?.includes(activeFilters.change)) {
           isVisible = false;
         }
         
-        // Type filter
         if (activeFilters.type && section.dataset.category !== activeFilters.type) {
           isVisible = false;
         }
         
-        // Deprecated filter
         if (activeFilters.deprecated && section.dataset.deprecated !== "true") {
           isVisible = false;
         }
         
+        // Apply visibility
         section.classList.toggle('hidden', !isVisible);
-        if (isVisible) visibleCount++;
+        
+        // 4. Only handle fork code blocks for visible items
+        if (isVisible) {
+          visibleCount++;
+          
+          // If filtering by fork, we need to prepare nested blocks but not auto-expand the parent
+          if (activeFilters.fork) {
+            // Get all nested code blocks
+            const forkBlocks = section.querySelectorAll('.expanded-content details.fork-code-block');
+            let foundMatchingFork = false;
+            
+            forkBlocks.forEach(block => {
+              const fork = block.getAttribute('data-fork');
+              
+              if (fork === activeFilters.fork) {
+                // This fork matches our filter - prepare it to be shown when parent is expanded
+                block.classList.remove('hidden');
+                block.setAttribute('open', 'true');
+                foundMatchingFork = true;
+                                
+                // Pre-highlight code
+                const codeElement = block.querySelector('code');
+                if (codeElement) {
+                  // Queue for syntax highlighting
+                  Prism.highlightElement(codeElement);
+                }
+              } else {
+                // This fork doesn't match - hide it
+                block.classList.add('hidden');
+              }
+            });
+            
+            // Hide items with no matching fork
+            if (forkBlocks.length > 0 && !foundMatchingFork) {
+              section.classList.add('hidden');
+              visibleCount--;
+            }
+          } else {
+            // Not filtering by fork - ensure all fork blocks are visible
+            // But don't auto-expand parent items
+            const forkBlocks = section.querySelectorAll('.expanded-content details.fork-code-block');
+            forkBlocks.forEach(block => {
+              block.classList.remove('hidden');
+            });
+            
+            // Make sure at least first fork block is open by default 
+            // (but don't change parent item expansion state)
+            if (section.hasAttribute('open')) {
+              const firstBlock = forkBlocks[0];
+              if (firstBlock) {
+                firstBlock.setAttribute('open', 'true');
+                forkBlocks.forEach((block, index) => {
+                  if (index > 0) block.removeAttribute('open');
+                });
+              }
+            }
+          }
+        }
       });
       
-      // Update parent container visibility
+      // 5. Update phase-group visibility (hide empty groups)
       sectionContainers.forEach(container => {
-        // Get all visible items in this container
-        const visibleItems = container.querySelectorAll('details.preset-group:not(.hidden)');
-        
         // Get the parent phase-groups
         const phaseGroups = container.querySelectorAll('.phase-group');
         
@@ -1296,8 +1367,11 @@
         });
       });
       
-      // Show/hide no results message
+      // 6. Show message if no results
       document.getElementById('noResults').classList.toggle('hidden', visibleCount > 0);
+      
+      // 7. Refresh syntax highlighting
+      Prism.highlightAll();
     }
     
     ///////////////////////////////////////////////////////////////////////////////////////////////
