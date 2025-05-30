@@ -1295,6 +1295,13 @@
 
         // Apply visibility
         section.classList.toggle('hidden', !isVisible);
+        if (activeFilters.search) {
+          if (isVisible) {
+            section.setAttribute('open', 'true');
+          } else {
+            section.removeAttribute('open');
+          }
+        }
 
         // 4. Only handle fork code blocks for visible items
         if (isVisible) {
@@ -1369,6 +1376,34 @@
 
       // 6. Show message if no results
       document.getElementById('noResults').classList.toggle('hidden', visibleCount > 0);
+
+      // Open outer <details> sections if any inner section is visible
+      if (activeFilters.search) {
+        document.querySelectorAll('body > details').forEach(section => {
+          const innerVisible = Array.from(
+            section.querySelectorAll('details.preset-group')
+          ).some(el => el.offsetParent !== null);
+
+          if (innerVisible) {
+            section.setAttribute('open', 'true');
+          } else {
+            section.removeAttribute('open');
+          }
+        });
+      }
+
+      // If search was cleared, collapse all preset-group details
+      if (!activeFilters.search) {
+        // Collapse all outer top-level sections
+        document.querySelectorAll('body > details').forEach(section => {
+          section.removeAttribute('open');
+        });
+
+        // Optional: collapse fork-level blocks too
+        document.querySelectorAll('details.fork-code-block').forEach(section => {
+          section.removeAttribute('open');
+        });
+      }
 
       // 7. Refresh syntax highlighting
       Prism.highlightAll();
