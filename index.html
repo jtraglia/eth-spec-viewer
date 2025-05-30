@@ -346,12 +346,12 @@
         flex-direction: column;
         align-items: flex-start;
       }
-      
+
       .controls-container {
         flex-direction: column;
         align-items: flex-start;
       }
-      
+
       .search-container {
         max-width: 100%;
       }
@@ -368,14 +368,14 @@
 
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
-  
+
   <!-- Font Awesome for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
   <div class="header-container">
     <h1>Ethereum Consensus Specifications</h1>
-    
+
     <div class="toggle-container">
       <i class="fas fa-sun"></i>
       <label class="toggle-switch">
@@ -391,7 +391,7 @@
       <input type="text" id="searchInput" placeholder="Search specifications...">
       <button id="searchClear" class="hidden">&times;</button>
     </div>
-    
+
     <div class="filter-container">
       <select id="forkFilter" class="filter-select">
         <option value="">Filter by fork...</option>
@@ -403,7 +403,7 @@
         <option value="ELECTRA">Electra</option>
         <option value="FULU">Fulu</option>
       </select>
-      
+
       <select id="changeFilter" class="filter-select">
         <option value="">Filter by changes...</option>
         <option value="PHASE0">Changed in Phase 0</option>
@@ -414,7 +414,7 @@
         <option value="ELECTRA">Changed in Electra</option>
         <option value="FULU">Changed in Fulu</option>
       </select>
-      
+
       <select id="typeFilter" class="filter-select">
         <option value="">Filter by type...</option>
         <option value="constant_vars">Constants</option>
@@ -425,14 +425,14 @@
         <option value="ssz_objects">SSZ Objects</option>
         <option value="functions">Functions</option>
       </select>
-      
+
       <button id="applyFilters" class="filter-button">Apply Filters</button>
       <button id="clearFilters" class="filter-button">Clear Filters</button>
     </div>
   </div>
-  
+
   <div id="activeFilters" class="filter-container"></div>
-  
+
   <div id="toggleDiffContainer" class="toggle-container hidden">
     <label>
       Show diff between upgrades
@@ -501,10 +501,10 @@
   <script>
     let jsonData = {};
     let deprecatedItems = new Set();
-    
+
     // Map to store all items by their ID (for direct linking)
     let itemsById = new Map();
-    
+
     // Currently active filters
     let activeFilters = {
       search: '',
@@ -599,11 +599,11 @@
 
       const oldLines = oldText.split('\n');
       const newLines = newText.split('\n');
-      
+
       // Highlight entire lines that are different
       const result = [];
       const maxLines = Math.max(oldLines.length, newLines.length);
-      
+
       for (let i = 0; i < maxLines; i++) {
         if (i >= newLines.length) {
           // Line was removed
@@ -620,7 +620,7 @@
           result.push(newLines[i]);
         }
       }
-      
+
       return result.join('\n');
     }
 
@@ -677,19 +677,19 @@
       if (!rows.length) {
         return `<p style="color: grey;">No data</p>`;
       }
-      
+
       // Create rows with diff highlighting if requested
       const rowHTML = rows.map((r, index) => {
         let mainnetValue = r.mainnetValue;
         let minimalValue = r.minimalValue;
-        
+
         // If showing diffs and we have a previous row to compare with
         if (showDiff && index < rows.length - 1) {
           const prevRow = rows[index + 1]; // Since rows are sorted in descending order
           mainnetValue = highlightDiff(prevRow.mainnetValue, mainnetValue);
           minimalValue = highlightDiff(prevRow.minimalValue, minimalValue);
         }
-        
+
         return `
           <tr>
             <td>${r.fork}</td>
@@ -748,9 +748,9 @@
       if (String(lastVal).length > 64) {
         displayTypeAndValue = false;
       }
-      
+
       // Add deprecated badge if needed
-      const deprecatedBadge = isItemDeprecated(name) ? 
+      const deprecatedBadge = isItemDeprecated(name) ?
         '<span class="deprecated-badge">DEPRECATED</span>' : '';
 
       if (displayTypeAndValue) {
@@ -766,25 +766,25 @@
       const showDiff = document.getElementById('showDiffToggle')?.checked || false;
       const table = buildTable(rows, showDiff);
       const summaryText = buildVariableSummary(baseName, mBase, mForks);
-      
+
       // Generate a unique ID for this item
       const itemId = generateItemId(category, baseName);
-      
+
       const details = document.createElement("details");
       details.className = "preset-group";
       details.id = itemId;
-      
+
       // Add deprecated class if needed
       if (isItemDeprecated(baseName)) {
         details.classList.add("deprecated-item");
       }
-      
+
       // Save reference to this item for direct linking
       itemsById.set(itemId, details);
 
       const summary = document.createElement("summary");
       const shareLink = createShareLink(itemId);
-      
+
       summary.innerHTML = `
         <span class="summary-icon"></span>
         <span class="collapsed-header">${summaryText}</span>
@@ -798,28 +798,28 @@
       content.className = "expanded-content";
       content.innerHTML = table;
       details.appendChild(content);
-      
+
       // Add data attributes for filtering
       details.dataset.name = baseName.toLowerCase();
       details.dataset.category = category;
-      
+
       // Add fork data for filtering
       if (mBase) {
         details.dataset.introducingFork = mBase.introducingFork;
       }
-      
+
       const forkSet = new Set();
       if (mBase) forkSet.add(mBase.introducingFork);
       if (mForks) {
         mForks.forEach(f => forkSet.add(f.fork));
       }
       details.dataset.forks = Array.from(forkSet).join(' ');
-      
+
       // Add changes data for filtering
       if (mForks && mForks.length > 0) {
         details.dataset.changedInForks = mForks.map(f => f.fork).join(' ');
       }
-      
+
       // Add deprecated data for filtering
       if (isItemDeprecated(baseName)) {
         details.dataset.deprecated = "true";
@@ -947,9 +947,9 @@
         const newest = mForks[mForks.length - 1];
         lastVal = newest.value;
       }
-      
+
       // Add deprecated badge if needed
-      const deprecatedBadge = isItemDeprecated(name) ? 
+      const deprecatedBadge = isItemDeprecated(name) ?
         '<span class="deprecated-badge">DEPRECATED</span>' : '';
 
       if (displayValueInSummary) {
@@ -961,25 +961,25 @@
 
     function renderItem(baseName, mForks, displayValueInSummary, category) {
       const summaryText = buildItemSummary(baseName, mForks, displayValueInSummary);
-      
+
       // Generate a unique ID for this item
       const itemId = generateItemId(category, baseName);
 
       const details = document.createElement("details");
       details.className = "preset-group";
       details.id = itemId;
-      
+
       // Add deprecated class if needed
       if (isItemDeprecated(baseName)) {
         details.classList.add("deprecated-item");
       }
-      
+
       // Save reference to this item for direct linking
       itemsById.set(itemId, details);
 
       const summary = document.createElement("summary");
       const shareLink = createShareLink(itemId);
-      
+
       summary.innerHTML = `
         <span class="summary-icon"></span>
         <span class="collapsed-header">${summaryText}</span>
@@ -991,20 +991,20 @@
 
       const content = document.createElement("div");
       content.className = "expanded-content";
-      
+
       // Add show diff toggle
       const showDiff = document.getElementById('showDiffToggle')?.checked || false;
 
       // Store fork details in a more accessible way for filtering
       let forkDetails = [];
-      
+
       // Initially, the first fork is open, others are closed
       var openOrNot = "open";
-      
+
       // Add each fork's code block
       for (const {fork, value} of [...mForks].reverse()) {
         const section = document.createElement('div');
-        
+
         // If showing diffs and this isn't the last fork value, compare with next value
         let displayValue = value;
         if (showDiff && mForks.length > 1) {
@@ -1015,7 +1015,7 @@
             displayValue = highlightDiff(olderFork.value, value);
           }
         }
-        
+
         // Explicitly create the fork details element to track it
         const forkDetailHTML = `
           <details ${openOrNot} class="preset-group fork-code-block" data-fork="${fork}">
@@ -1026,23 +1026,23 @@
             <pre class="line-numbers"><code class="language-python">${displayValue}</code></pre>
           </details>
         `;
-        
+
         section.innerHTML = forkDetailHTML;
         content.appendChild(section);
-        
+
         // Keep track of this fork detail for filtering
         forkDetails.push(fork);
-        
+
         // Only the first one is open by default
         openOrNot = "";
       }
 
       details.appendChild(content);
-      
+
       // Add data attributes for filtering
       details.dataset.name = baseName.toLowerCase();
       details.dataset.category = category;
-      
+
       // Add fork data for filtering
       if (mForks && mForks.length > 0) {
         details.dataset.introducingFork = mForks[0].fork;
@@ -1050,12 +1050,12 @@
         // Store available fork blocks
         details.dataset.forkBlocks = JSON.stringify(forkDetails);
       }
-      
+
       // Add changes data for filtering
       if (mForks && mForks.length > 1) {
         details.dataset.changedInForks = mForks.slice(1).map(f => f.fork).join(' ');
       }
-      
+
       // Add deprecated data for filtering
       if (isItemDeprecated(baseName)) {
         details.dataset.deprecated = "true";
@@ -1105,7 +1105,7 @@
 
         const itemContainer = document.getElementById(fieldName);
         itemContainer.innerHTML = "";
-        
+
         Object.keys(itemGroups).sort(forkGroupCompareAscending).forEach((groupName) => {
           const groupDiv = document.createElement("div");
           groupDiv.className = "phase-group";
@@ -1120,13 +1120,13 @@
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Search and Filtering
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     function applyFilters() {
       const searchInput = document.getElementById('searchInput').value.toLowerCase();
       const forkFilter = document.getElementById('forkFilter').value;
       const changeFilter = document.getElementById('changeFilter').value;
       const typeFilter = document.getElementById('typeFilter').value;
-      
+
       activeFilters = {
         search: searchInput,
         fork: forkFilter,
@@ -1134,10 +1134,10 @@
         type: typeFilter,
         deprecated: false
       };
-      
+
       updateActiveFiltersDisplay();
       filterItems();
-      
+
       // Show/hide diff toggle based on whether we're filtering for a single type
       const toggleDiffContainer = document.getElementById('toggleDiffContainer');
       if (typeFilter) {
@@ -1146,14 +1146,14 @@
         toggleDiffContainer.classList.add('hidden');
       }
     }
-    
+
     function clearFilters() {
       document.getElementById('searchInput').value = '';
       document.getElementById('forkFilter').value = '';
       document.getElementById('changeFilter').value = '';
       document.getElementById('typeFilter').value = '';
       document.getElementById('searchClear').classList.add('hidden');
-      
+
       activeFilters = {
         search: '',
         fork: '',
@@ -1161,34 +1161,34 @@
         type: '',
         deprecated: false
       };
-      
+
       updateActiveFiltersDisplay();
       filterItems();
-      
+
       document.getElementById('toggleDiffContainer').classList.add('hidden');
     }
-    
+
     function updateActiveFiltersDisplay() {
       const container = document.getElementById('activeFilters');
       container.innerHTML = '';
-      
+
       let hasFilters = false;
-      
+
       if (activeFilters.search) {
         container.appendChild(createFilterBadge('Search', activeFilters.search));
         hasFilters = true;
       }
-      
+
       if (activeFilters.fork) {
         container.appendChild(createFilterBadge('Fork', activeFilters.fork));
         hasFilters = true;
       }
-      
+
       if (activeFilters.change) {
         container.appendChild(createFilterBadge('Changed in', activeFilters.change));
         hasFilters = true;
       }
-      
+
       if (activeFilters.type) {
         let displayType = activeFilters.type;
         switch(activeFilters.type) {
@@ -1203,51 +1203,51 @@
         container.appendChild(createFilterBadge('Type', displayType));
         hasFilters = true;
       }
-      
+
       if (activeFilters.deprecated) {
         container.appendChild(createFilterBadge('Status', 'Deprecated'));
         hasFilters = true;
       }
     }
-    
+
     function createFilterBadge(label, value) {
       const badge = document.createElement('div');
       badge.className = 'filter-badge';
       badge.innerHTML = `${label}: ${value} <span class="filter-badge-remove">×</span>`;
-      
+
       badge.querySelector('.filter-badge-remove').addEventListener('click', () => {
         // Remove this specific filter
         switch(label) {
-          case 'Search': 
+          case 'Search':
             document.getElementById('searchInput').value = '';
-            activeFilters.search = ''; 
+            activeFilters.search = '';
             document.getElementById('searchClear').classList.add('hidden');
             break;
-          case 'Fork': 
+          case 'Fork':
             document.getElementById('forkFilter').value = '';
-            activeFilters.fork = ''; 
+            activeFilters.fork = '';
             break;
-          case 'Changed in': 
+          case 'Changed in':
             document.getElementById('changeFilter').value = '';
-            activeFilters.change = ''; 
+            activeFilters.change = '';
             break;
-          case 'Type': 
+          case 'Type':
             document.getElementById('typeFilter').value = '';
-            activeFilters.type = ''; 
+            activeFilters.type = '';
             document.getElementById('toggleDiffContainer').classList.add('hidden');
             break;
-          case 'Status': 
-            activeFilters.deprecated = false; 
+          case 'Status':
+            activeFilters.deprecated = false;
             break;
         }
-        
+
         updateActiveFiltersDisplay();
         filterItems();
       });
-      
+
       return badge;
     }
-    
+
     function filterItems() {
       // 1. First handle the top-level category sections (Constants, Functions, etc.)
       if (activeFilters.type) {
@@ -1262,59 +1262,59 @@
       } else {
         // Don't change the open/closed state of sections when not filtering by type
       }
-      
+
       // 2. Get all item sections (individual function/constant/etc. items)
       const allSections = document.querySelectorAll('details.preset-group:not(.fork-code-block)');
       const sectionContainers = document.querySelectorAll('details > div');
       let visibleCount = 0;
-      
+
       // 3. Apply filters to each item
       allSections.forEach(section => {
         let isVisible = true;
-        
+
         // Check each filter
         if (activeFilters.search && !section.dataset.name?.toLowerCase().includes(activeFilters.search)) {
           isVisible = false;
         }
-        
+
         if (activeFilters.fork && !section.dataset.forks?.includes(activeFilters.fork)) {
           isVisible = false;
         }
-        
+
         if (activeFilters.change && !section.dataset.changedInForks?.includes(activeFilters.change)) {
           isVisible = false;
         }
-        
+
         if (activeFilters.type && section.dataset.category !== activeFilters.type) {
           isVisible = false;
         }
-        
+
         if (activeFilters.deprecated && section.dataset.deprecated !== "true") {
           isVisible = false;
         }
-        
+
         // Apply visibility
         section.classList.toggle('hidden', !isVisible);
-        
+
         // 4. Only handle fork code blocks for visible items
         if (isVisible) {
           visibleCount++;
-          
+
           // If filtering by fork, we need to prepare nested blocks but not auto-expand the parent
           if (activeFilters.fork) {
             // Get all nested code blocks
             const forkBlocks = section.querySelectorAll('.expanded-content details.fork-code-block');
             let foundMatchingFork = false;
-            
+
             forkBlocks.forEach(block => {
               const fork = block.getAttribute('data-fork');
-              
+
               if (fork === activeFilters.fork) {
                 // This fork matches our filter - prepare it to be shown when parent is expanded
                 block.classList.remove('hidden');
                 block.setAttribute('open', 'true');
                 foundMatchingFork = true;
-                                
+
                 // Pre-highlight code
                 const codeElement = block.querySelector('code');
                 if (codeElement) {
@@ -1326,7 +1326,7 @@
                 block.classList.add('hidden');
               }
             });
-            
+
             // Hide items with no matching fork
             if (forkBlocks.length > 0 && !foundMatchingFork) {
               section.classList.add('hidden');
@@ -1339,8 +1339,8 @@
             forkBlocks.forEach(block => {
               block.classList.remove('hidden');
             });
-            
-            // Make sure at least first fork block is open by default 
+
+            // Make sure at least first fork block is open by default
             // (but don't change parent item expansion state)
             if (section.hasAttribute('open')) {
               const firstBlock = forkBlocks[0];
@@ -1354,43 +1354,43 @@
           }
         }
       });
-      
+
       // 5. Update phase-group visibility (hide empty groups)
       sectionContainers.forEach(container => {
         // Get the parent phase-groups
         const phaseGroups = container.querySelectorAll('.phase-group');
-        
+
         // For each phase-group, hide if it has no visible children
         phaseGroups.forEach(group => {
           const hasVisibleChildren = group.querySelectorAll('details.preset-group:not(.hidden)').length > 0;
           group.classList.toggle('hidden', !hasVisibleChildren);
         });
       });
-      
+
       // 6. Show message if no results
       document.getElementById('noResults').classList.toggle('hidden', visibleCount > 0);
-      
+
       // 7. Refresh syntax highlighting
       Prism.highlightAll();
     }
-    
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Dark Mode
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     function initDarkMode() {
       const darkModeToggle = document.getElementById('darkModeToggle');
-      
+
       // Check for saved preference or system preference
       const savedTheme = localStorage.getItem('theme');
       const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      
+
       // Set initial state
       if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
         document.documentElement.setAttribute('data-theme', 'dark');
         darkModeToggle.checked = true;
       }
-      
+
       // Toggle dark mode
       darkModeToggle.addEventListener('change', function() {
         if (this.checked) {
@@ -1400,23 +1400,23 @@
           document.documentElement.removeAttribute('data-theme');
           localStorage.setItem('theme', 'light');
         }
-        
+
         // Refresh syntax highlighting
         if (typeof Prism !== 'undefined') {
           Prism.highlightAll();
         }
       });
     }
-    
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Direct linking to items
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     function handleDirectLinks() {
       // Check if URL has a hash
       if (window.location.hash) {
         const itemId = window.location.hash.substring(1);
-        
+
         // After the data is loaded and rendered
         setTimeout(() => {
           const item = document.getElementById(itemId);
@@ -1429,10 +1429,10 @@
               }
               parent = parent.parentElement;
             }
-            
+
             // Open the item itself
             item.setAttribute('open', 'true');
-            
+
             // Scroll to the item (with a slight delay to let rendering complete)
             setTimeout(() => {
               item.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1441,43 +1441,43 @@
         }, 500);
       }
     }
-    
+
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Event Listeners
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     function initEventListeners() {
       // Search input event
       const searchInput = document.getElementById('searchInput');
       const searchClear = document.getElementById('searchClear');
-      
+
       searchInput.addEventListener('input', function() {
         const hasText = this.value.length > 0;
         searchClear.classList.toggle('hidden', !hasText);
         applyFilters();
       });
-      
+
       searchClear.addEventListener('click', function() {
         searchInput.value = '';
         this.classList.add('hidden');
         applyFilters();
       });
-      
+
       // Filter buttons
       document.getElementById('applyFilters').addEventListener('click', applyFilters);
       document.getElementById('clearFilters').addEventListener('click', clearFilters);
-      
+
       // Diff toggle
       document.getElementById('showDiffToggle').addEventListener('change', function() {
         loadData(); // Reload and re-render to apply diff highlighting
       });
-      
+
       // Share button click event (delegation)
       document.addEventListener('click', function(e) {
         if (e.target.closest('.share-button')) {
           const shareButton = e.target.closest('.share-button');
           const link = shareButton.dataset.link;
-          
+
           // Copy link to clipboard
           navigator.clipboard.writeText(link).then(() => {
             // Show a brief visual confirmation
@@ -1493,7 +1493,7 @@
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // Deprecated Items
     ///////////////////////////////////////////////////////////////////////////////////////////////
-    
+
     function initDeprecatedItems() {
 
     }
@@ -1515,10 +1515,10 @@
         addItems(jsonData, "dataclasses");
         addItems(jsonData, "ssz_objects");
         addItems(jsonData, "functions");
-        
+
         // Apply any active filters
         filterItems();
-        
+
         // Handle direct links
         handleDirectLinks();
 
@@ -1538,7 +1538,7 @@
     // Fallback data function to show example data if JSON loading fails
     function loadFallbackData() {
       console.log("Loading fallback data");
-      
+
       // Example data structure that matches expected format
       const fallbackData = {
         mainnet: {
@@ -1578,13 +1578,13 @@
           }
         }
       };
-      
+
       // If fetch fails to load data after 3 seconds, use fallback data
       setTimeout(() => {
         if (Object.keys(jsonData).length === 0) {
           console.log("Using fallback data");
           jsonData = fallbackData;
-          
+
           addVariables(jsonData, "constant_vars");
           addVariables(jsonData, "preset_vars");
           addVariables(jsonData, "config_vars");
@@ -1592,10 +1592,10 @@
           addItems(jsonData, "dataclasses");
           addItems(jsonData, "ssz_objects");
           addItems(jsonData, "functions");
-          
+
           // Apply any active filters
           filterItems();
-          
+
           // Add notice about fallback data
           const notice = document.createElement('div');
           notice.style.background = '#ffe6cc';
@@ -1605,7 +1605,7 @@
           notice.style.borderRadius = '4px';
           notice.innerHTML = '<strong>Note:</strong> Displaying example data. Could not load pyspec.json.';
           document.body.insertBefore(notice, document.body.firstChild);
-          
+
           Prism.highlightAll();
         }
       }, 3000);
