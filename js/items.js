@@ -2,10 +2,10 @@
  * Items (Functions, SSZ Objects, Dataclasses, Custom Types) rendering
  */
 
-import { 
-  getForkColor, 
-  getIncludedForks, 
-  forkGroupCompareAscending, 
+import {
+  getForkColor,
+  getIncludedForks,
+  forkGroupCompareAscending,
   forkGroupCompareDescending,
   generateItemId,
   createShareLink,
@@ -95,7 +95,7 @@ export function renderItem(baseName, mForks, displayValueInSummary, category) {
     return aIndex - bIndex; // Ascending chronological order
   });
   const forksReversed = forksSorted.reverse(); // Newest first
-  
+
   forksReversed.forEach(({fork, value}, index) => {
     const section = document.createElement('div');
 

@@ -1,16 +1,16 @@
 /**
  * Main application entry point for the Ethereum Consensus Specifications viewer
- * 
+ *
  * This module serves as the central coordinator for the entire application,
  * handling initialization, data loading, event setup, and application lifecycle.
- * 
+ *
  * Key responsibilities:
  * - Initialize all application modules (dark mode, event listeners, etc.)
  * - Load and process the pyspec.json data file
  * - Set up error handling and fallback mechanisms
  * - Handle direct links to specific specification items
  * - Coordinate the rendering of variables and specification items
- * 
+ *
  * @module main
  */
 
@@ -34,7 +34,7 @@ async function copyToClipboard(text, button) {
   try {
     await navigator.clipboard.writeText(text);
     logger.debug('Link copied to clipboard:', text);
-    
+
     // Show visual confirmation
     const originalHTML = button.innerHTML;
     button.innerHTML = '<i class="fas fa-check"></i>';
@@ -48,11 +48,11 @@ async function copyToClipboard(text, button) {
 
 /**
  * Handle direct links to specific specification items
- * 
+ *
  * Processes URL hash fragments to automatically open and scroll to
  * specific items when the page loads. Useful for sharing links to
  * specific functions, constants, or other specification elements.
- * 
+ *
  * @example
  * // URL like https://example.com/#functions-some_function
  * // Will automatically open the Functions section and scroll to some_function
@@ -93,7 +93,7 @@ function handleDirectLinks() {
 function initEventListeners() {
   try {
     logger.info('Initializing event listeners');
-    
+
     // Get required elements
     const elements = getElements(['searchInput', 'searchClear'], true);
     const { searchInput, searchClear } = elements;
@@ -119,13 +119,13 @@ function initEventListeners() {
 
     // Filter buttons (optional elements)
     const filterElements = getElements(['applyFilters', 'clearFilters', 'showDiffToggle']);
-    
+
     if (filterElements.applyFilters) {
       addEventListenerSafe(filterElements.applyFilters, 'click', () => {
         applyFilters();
       });
     }
-    
+
     if (filterElements.clearFilters) {
       addEventListenerSafe(filterElements.clearFilters, 'click', () => {
         clearFilters();
@@ -155,7 +155,7 @@ function initEventListeners() {
         copyToClipboard(link, shareButton);
       }
     });
-    
+
     logger.info('Event listeners initialized successfully');
   } catch (error) {
     ErrorHandler.handle(error, 'Event listener initialization', true);
@@ -164,10 +164,10 @@ function initEventListeners() {
 
 /**
  * Initialize deprecated items list
- * 
+ *
  * Marks specific specification items as deprecated. These items will be
  * visually distinguished in the UI and can be filtered separately.
- * 
+ *
  * @example
  * // To mark an item as deprecated:
  * // appState.addDeprecatedItem('OLD_CONSTANT_NAME');
@@ -183,18 +183,18 @@ function initDeprecatedItems() {
 async function loadData() {
   return ErrorHandler.handleAsync(async () => {
     logger.info('Starting data load');
-    
+
     const resp = await fetch("pyspec.json");
     if (!resp.ok) {
       throw new Error(`Failed to fetch pyspec.json: HTTP ${resp.status} ${resp.statusText}`);
     }
-    
+
     const jsonData = await resp.json();
     logger.info('Successfully loaded JSON data', { size: JSON.stringify(jsonData).length });
-    
+
     // Populate fork filter dropdowns
     populateForkFilters(jsonData);
-    
+
     appState.setJsonData(jsonData);
 
     // Render different categories
@@ -222,11 +222,11 @@ async function loadData() {
         initEnhancedSyntax();
       }, 200);
     }
-    
+
     logger.info('Data load completed successfully');
   }, 'Data loading', 3).catch(error => {
     logger.error('Failed to load data after all retries:', error);
-    
+
     // Display user-friendly error message
     const noResults = document.getElementById('noResults');
     if (noResults) {
@@ -239,18 +239,18 @@ async function loadData() {
       `;
       noResults.classList.remove('hidden');
     }
-    
+
     throw error; // Re-throw for any calling code
   });
 }
 
 /**
  * Load fallback example data if main JSON loading fails
- * 
+ *
  * Provides a basic set of example data to demonstrate the application
  * functionality when the main pyspec.json file cannot be loaded.
  * Displays a notice to inform users they're viewing example data.
- * 
+ *
  * @param {number} [delay=3000] - Delay in milliseconds before showing fallback
  */
 function loadFallbackData(delay = 3000) {
@@ -332,12 +332,12 @@ function loadFallbackData(delay = 3000) {
 (async function initializeApp() {
   try {
     logger.info('Starting application initialization');
-    
+
     // Initialize core functionality
     initDarkMode();
     initEventListeners();
     initDeprecatedItems();
-    
+
     // Load data with fallback
     try {
       await loadData();
@@ -346,7 +346,7 @@ function loadFallbackData(delay = 3000) {
       logger.warn('Main data loading failed, trying fallback data');
       loadFallbackData();
     }
-    
+
   } catch (error) {
     ErrorHandler.handle(error, 'Application initialization', true);
   }

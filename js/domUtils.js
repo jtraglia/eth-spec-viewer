@@ -1,9 +1,9 @@
 /**
  * DOM utility functions for common operations
- * 
+ *
  * Provides reusable functions for DOM manipulation, element creation,
  * and common UI operations to reduce code duplication.
- * 
+ *
  * @module domUtils
  */
 
@@ -18,15 +18,15 @@ import { logger } from './logger.js';
  */
 export function getElement(id, required = false) {
   const element = document.getElementById(id);
-  
+
   if (required && !element) {
     throw new Error(`Required element with ID '${id}' not found`);
   }
-  
+
   if (!element) {
     logger.warn(`Element with ID '${id}' not found`);
   }
-  
+
   return element;
 }
 
@@ -40,7 +40,7 @@ export function getElement(id, required = false) {
 export function getElements(ids, required = false) {
   const elements = {};
   const missing = [];
-  
+
   for (const id of ids) {
     const element = document.getElementById(id);
     if (element) {
@@ -49,15 +49,15 @@ export function getElements(ids, required = false) {
       missing.push(id);
     }
   }
-  
+
   if (required && missing.length > 0) {
     throw new Error(`Required elements not found: ${missing.join(', ')}`);
   }
-  
+
   if (missing.length > 0) {
     logger.warn(`Elements not found: ${missing.join(', ')}`);
   }
-  
+
   return elements;
 }
 
@@ -75,38 +75,38 @@ export function getElements(ids, required = false) {
  */
 export function createElement(tagName, options = {}) {
   const element = document.createElement(tagName);
-  
+
   // Set attributes
   if (options.attributes) {
     for (const [key, value] of Object.entries(options.attributes)) {
       element.setAttribute(key, value);
     }
   }
-  
+
   // Set data attributes
   if (options.dataset) {
     for (const [key, value] of Object.entries(options.dataset)) {
       element.dataset[key] = value;
     }
   }
-  
+
   // Add CSS classes
   if (options.classes) {
     element.classList.add(...options.classes);
   }
-  
+
   // Set content
   if (options.textContent) {
     element.textContent = options.textContent;
   } else if (options.innerHTML) {
     element.innerHTML = options.innerHTML;
   }
-  
+
   // Apply styles
   if (options.style) {
     Object.assign(element.style, options.style);
   }
-  
+
   return element;
 }
 
@@ -119,7 +119,7 @@ export function createElement(tagName, options = {}) {
  */
 export function toggleVisibility(element, visible, method = 'display', hiddenClass = 'hidden') {
   if (!element) return;
-  
+
   switch (method) {
     case 'display':
       element.style.display = visible ? '' : 'none';
@@ -146,7 +146,7 @@ export function addEventListenerSafe(element, event, handler, options = {}) {
     logger.warn('Cannot add event listener to null element');
     return () => {};
   }
-  
+
   const safeHandler = (e) => {
     try {
       handler(e);
@@ -154,9 +154,9 @@ export function addEventListenerSafe(element, event, handler, options = {}) {
       logger.error(`Error in ${event} event handler:`, error);
     }
   };
-  
+
   element.addEventListener(event, safeHandler, options);
-  
+
   // Return cleanup function
   return () => {
     element.removeEventListener(event, safeHandler, options);
@@ -172,12 +172,12 @@ export function batchDOMUpdates(container, operations) {
   // Use document fragment for better performance
   const fragment = document.createDocumentFragment();
   const originalParent = container.parentNode;
-  
+
   // Temporarily remove from DOM
   if (originalParent) {
     originalParent.removeChild(container);
   }
-  
+
   try {
     operations(container, fragment);
   } finally {
@@ -194,7 +194,7 @@ export function batchDOMUpdates(container, operations) {
  */
 export function clearElement(element) {
   if (!element) return;
-  
+
   while (element.firstChild) {
     element.removeChild(element.firstChild);
   }
@@ -210,13 +210,13 @@ export function clearElement(element) {
  */
 export function scrollToElement(element, options = {}) {
   if (!element) return;
-  
+
   const defaultOptions = {
     behavior: 'smooth',
     block: 'start',
     inline: 'nearest'
   };
-  
+
   element.scrollIntoView({ ...defaultOptions, ...options });
 }
 
@@ -227,7 +227,7 @@ export function scrollToElement(element, options = {}) {
  */
 export function isElementVisible(element) {
   if (!element) return false;
-  
+
   const rect = element.getBoundingClientRect();
   return (
     rect.top >= 0 &&

@@ -4,8 +4,8 @@ index 76a16e261..3194b692f 100644
 +++ b/setup.py
 @@ -83,6 +83,9 @@ def load_config(config_path: Path) -> dict[str, str | list[dict[str, str]]]:
      return parse_config_vars(config_data)
- 
- 
+
+
 +pyspec = {}
 +
 +
@@ -15,7 +15,7 @@ index 76a16e261..3194b692f 100644
 @@ -109,6 +112,13 @@ def build_spec(
              spec_object.custom_types | spec_object.preset_dep_custom_types,
          )
- 
+
 +    if preset_name not in pyspec:
 +        pyspec[preset_name] = {}
 +    if fork not in pyspec[preset_name]:
@@ -24,17 +24,17 @@ index 76a16e261..3194b692f 100644
 +        pyspec[preset_name][fork][key] = value
 +
      return objects_to_spec(preset_name, spec_object, fork, class_objects)
- 
- 
+
+
 @@ -210,6 +220,11 @@ class PySpecCommand(Command):
                  # `mainnet` is the default spec.
                  out.write("from . import mainnet as spec  # noqa:F401\n")
- 
+
 +        with open("pyspec.json", "w") as file:
 +            import json
 +
 +            json.dump(pyspec, file)
 +
- 
+
  class BuildPyCommand(build_py):
      """Customize the build command to run the spec-builder on setup.py build"""

@@ -1,6 +1,6 @@
 /**
  * Application state management
- * 
+ *
  * Centralized state container for the Ethereum spec viewer application.
  * Manages JSON data, deprecated items, UI element references, and filter state.
  */
@@ -12,13 +12,13 @@ export class AppState {
   constructor() {
     /** @type {Object} The loaded JSON specification data */
     this.jsonData = {};
-    
+
     /** @type {Set<string>} Set of deprecated item names */
     this.deprecatedItems = new Set();
-    
+
     /** @type {Map<string, HTMLElement>} Map of item IDs to DOM elements for direct linking */
     this.itemsById = new Map();
-    
+
     /** @type {Object} Currently active filter state */
     this.activeFilters = {
       /** @type {string} Search term filter */

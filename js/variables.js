@@ -1,16 +1,16 @@
 /**
  * Variables (Constants, Presets, Configurations) rendering module
- * 
+ *
  * Handles the rendering and display of Ethereum consensus specification variables
  * including constants, preset variables, and configuration variables. These variables
  * can vary between different forks and network configurations.
  */
 
-import { 
-  getIncludedForks, 
-  parseForkName, 
-  parseValue, 
-  forkGroupCompareAscending, 
+import {
+  getIncludedForks,
+  parseForkName,
+  parseValue,
+  forkGroupCompareAscending,
   forkGroupCompareDescending,
   generateItemId,
   createShareLink,
@@ -21,7 +21,7 @@ import { createForkBadgesHTML, createDeprecatedBadgeHTML, createShareButtonHTML 
 
 /**
  * Get the value of a variable for a specific fork
- * 
+ *
  * @param {string} fk - Fork name to get value for
  * @param {Object} baseVal - Base variable object with introducingFork, value, type
  * @param {Array} forkArr - Array of fork-specific overrides

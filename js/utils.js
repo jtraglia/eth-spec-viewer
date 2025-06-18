@@ -20,7 +20,7 @@ export function getForkColor(forkName) {
  * @returns {boolean} Whether the phase should be included
  */
 export function phaseIncluded(phaseName) {
-  return !phaseName.toUpperCase().startsWith("EIP") 
+  return !phaseName.toUpperCase().startsWith("EIP")
     && phaseName.toUpperCase() != "WHISK";
 }
 
@@ -73,16 +73,16 @@ export function parseValue(fields) {
 export function forkGroupCompareAscending(a, b) {
   const aIndex = FORK_ORDER.indexOf(a.toUpperCase());
   const bIndex = FORK_ORDER.indexOf(b.toUpperCase());
-  
+
   // If both forks are in the known order, use that
   if (aIndex !== -1 && bIndex !== -1) {
     return aIndex - bIndex;
   }
-  
+
   // If only one is in the known order, prioritize it
   if (aIndex !== -1) return -1;
   if (bIndex !== -1) return 1;
-  
+
   // If neither is in the known order, use alphabetical
   return a.localeCompare(b);
 }

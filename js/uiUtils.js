@@ -1,9 +1,9 @@
 /**
  * UI utility functions for common interface elements
- * 
+ *
  * Provides reusable functions for creating UI components like badges,
  * buttons, and other common interface elements.
- * 
+ *
  * @module uiUtils
  */
 
@@ -21,7 +21,7 @@ import { createElement } from './domUtils.js';
 export function createForkBadge(fork, options = {}) {
   const color = getForkColor(fork);
   const className = options.className || 'badge';
-  
+
   return createElement('span', {
     classes: [className],
     textContent: fork,

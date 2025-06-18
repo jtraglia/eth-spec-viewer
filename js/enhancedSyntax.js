@@ -10,14 +10,14 @@ export function enhancePythonSyntax() {
   // Wait for Prism to finish
   setTimeout(() => {
     const pythonBlocks = document.querySelectorAll('code.language-python');
-    
+
     pythonBlocks.forEach(block => {
       // Skip if already processed
       if (block.dataset.enhanced) return;
-      
+
       // Direct HTML processing approach
       let html = block.innerHTML;
-      
+
       // Replace function calls that aren't already in spans
       // Look for patterns like "word(" that aren't inside existing token spans
       const lines = html.split('\n');
@@ -40,13 +40,13 @@ export function enhancePythonSyntax() {
           return line.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, '<span class="token function-call">$1</span>');
         }
       });
-      
+
       const newHTML = processedLines.join('\n');
-      
+
       if (newHTML !== html) {
         block.innerHTML = newHTML;
       }
-      
+
       block.dataset.enhanced = 'true';
     });
   }, 150); // Increase timeout to ensure Prism is done
@@ -58,12 +58,12 @@ export function enhancePythonSyntax() {
 export function initEnhancedSyntax() {
   // Run initial enhancement
   enhancePythonSyntax();
-  
+
   // Also enhance when new content is added
   const observer = new MutationObserver(() => {
     enhancePythonSyntax();
   });
-  
+
   observer.observe(document.body, {
     childList: true,
     subtree: true

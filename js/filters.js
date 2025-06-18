@@ -1,11 +1,11 @@
 /**
  * Search and filtering functionality for the Ethereum Consensus Specifications viewer
- * 
+ *
  * Provides real-time search and filtering capabilities for specification items.
  * Supports filtering by search terms, specific forks, changes, item types, and
  * deprecated status. Includes performance optimizations like debouncing and
  * batched DOM operations.
- * 
+ *
  * @module filters
  */
 
@@ -21,9 +21,9 @@ import { getElement, getElements, toggleVisibility } from './domUtils.js';
 export function applyFilters() {
   try {
     logger.debug('Applying filters');
-    
+
     const filterElements = getElements(['searchInput', 'forkFilter', 'changeFilter', 'typeFilter'], true);
-    
+
     appState.updateActiveFilters({
       search: filterElements.searchInput.value.toLowerCase(),
       fork: filterElements.forkFilter.value,
@@ -39,7 +39,7 @@ export function applyFilters() {
     if (toggleDiffContainer) {
       toggleVisibility(toggleDiffContainer, !!filterElements.typeFilter.value, 'class', 'hidden');
     }
-    
+
     logger.debug('Filters applied successfully', appState.getActiveFilters());
   } catch (error) {
     ErrorHandler.handle(error, 'Apply filters');
@@ -72,7 +72,7 @@ export function clearFilters() {
     appState.clearFilters();
     updateActiveFiltersDisplay();
     filterItems();
-    
+
     logger.debug('All filters cleared');
   } catch (error) {
     ErrorHandler.handle(error, 'Clear filters');
@@ -172,12 +172,12 @@ function filterItems() {
  */
 function performFiltering() {
   const activeFilters = appState.getActiveFilters();
-  
+
   // Cache DOM queries for better performance
   const topLevelSections = document.querySelectorAll('main section > details');
   const allSections = document.querySelectorAll('details.preset-group:not(.fork-code-block)');
   let visibleCount = 0;
-  
+
   // 1. First handle the top-level category sections (Constants, Functions, etc.)
   if (activeFilters.type) {
     // Only open the type filter's section
@@ -198,7 +198,7 @@ function performFiltering() {
   // 3. Apply filters to each item - optimized for performance
   for (const section of allSections) {
     let isVisible = true;
-    
+
     // Early exit optimizations - check most restrictive filters first
     if (activeFilters.type && section.dataset.category !== activeFilters.type) {
       isVisible = false;
@@ -223,12 +223,12 @@ function performFiltering() {
 
     // Batch DOM updates
     sectionsToUpdate.push({ section, isVisible });
-    
+
     if (isVisible) {
       visibleCount++;
     }
   }
-  
+
   // Apply all DOM updates in one batch
   for (const { section, isVisible } of sectionsToUpdate) {
     section.classList.toggle('hidden', !isVisible);
@@ -300,13 +300,13 @@ function performFiltering() {
   // 5. Update phase-group visibility (hide empty groups)
   // Get ALL phase groups across all categories
   const allPhaseGroups = document.querySelectorAll('.phase-group');
-  
+
   allPhaseGroups.forEach(group => {
     // Check if this phase group has any visible preset-group items
     const visibleItems = Array.from(group.querySelectorAll('details.preset-group:not(.fork-code-block)')).filter(
       item => !item.classList.contains('hidden')
     );
-    
+
     // Hide the phase group if it has no visible items
     if (visibleItems.length === 0) {
       group.style.display = 'none';
@@ -344,7 +344,7 @@ function performFiltering() {
     document.querySelectorAll('details.fork-code-block').forEach(section => {
       section.removeAttribute('open');
     });
-    
+
     // Show all phase groups when no filters are active
     if (!activeFilters.fork && !activeFilters.change && !activeFilters.type && !activeFilters.deprecated) {
       document.querySelectorAll('.phase-group').forEach(group => {

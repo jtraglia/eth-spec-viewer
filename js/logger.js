@@ -123,7 +123,7 @@ export class ErrorHandler {
    */
   static async handleAsync(asyncFn, context = 'Async operation', maxRetries = 3) {
     let lastError;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         logger.debug(`Attempting ${context} (attempt ${attempt}/${maxRetries})`);
@@ -131,7 +131,7 @@ export class ErrorHandler {
       } catch (error) {
         lastError = error;
         logger.warn(`${context} failed on attempt ${attempt}: ${error.message}`);
-        
+
         if (attempt < maxRetries) {
           // Exponential backoff: wait 2^attempt seconds
           const delay = Math.pow(2, attempt) * 1000;
@@ -140,7 +140,7 @@ export class ErrorHandler {
         }
       }
     }
-    
+
     // All retries failed
     this.handle(lastError, context, true);
     throw lastError;
@@ -153,7 +153,7 @@ export class ErrorHandler {
   static showUserError(message) {
     // Create or update error notification
     let errorElement = document.getElementById('error-notification');
-    
+
     if (!errorElement) {
       errorElement = document.createElement('div');
       errorElement.id = 'error-notification';
@@ -170,16 +170,16 @@ export class ErrorHandler {
         max-width: 400px;
         cursor: pointer;
       `;
-      
+
       errorElement.addEventListener('click', () => {
         errorElement.remove();
       });
-      
+
       document.body.appendChild(errorElement);
     }
-    
+
     errorElement.textContent = message;
-    
+
     // Auto-remove after 5 seconds
     setTimeout(() => {
       if (errorElement.parentNode) {
@@ -193,7 +193,7 @@ export class ErrorHandler {
    * @returns {boolean} True if in development
    */
   static isDevelopment() {
-    return window.location.hostname === 'localhost' || 
+    return window.location.hostname === 'localhost' ||
            window.location.hostname === '127.0.0.1' ||
            window.location.hostname === '';
   }

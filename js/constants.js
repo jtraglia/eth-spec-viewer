@@ -1,6 +1,6 @@
 /**
  * Constants used throughout the Ethereum Consensus Specifications viewer application
- * 
+ *
  * This module contains all the constants for fork colors, ordering, category types,
  * and display names used across the application.
  */
@@ -45,7 +45,7 @@ const FORK_COLOR_PALETTE = [
  */
 const DEFAULT_FORK_DISPLAY_NAMES = {
   PHASE0: "Phase 0",
-  ALTAIR: "Altair", 
+  ALTAIR: "Altair",
   BELLATRIX: "Bellatrix",
   CAPELLA: "Capella",
   DENEB: "Deneb",
@@ -85,22 +85,22 @@ export function initializeForkConfig(data) {
   const knownOrder = ['PHASE0', 'ALTAIR', 'BELLATRIX', 'CAPELLA', 'DENEB', 'ELECTRA', 'FULU'];
   const knownForks = knownOrder.filter(fork => discoveredForks.includes(fork));
   const unknownForks = discoveredForks.filter(fork => !knownOrder.includes(fork)).sort();
-  
+
   DYNAMIC_FORK_CONFIG.order = [...knownForks, ...unknownForks];
-  
+
   // Assign colors from palette
   DYNAMIC_FORK_CONFIG.colors = {};
   DYNAMIC_FORK_CONFIG.order.forEach((fork, index) => {
     DYNAMIC_FORK_CONFIG.colors[fork] = FORK_COLOR_PALETTE[index % FORK_COLOR_PALETTE.length];
   });
-  
+
   // Set display names
   DYNAMIC_FORK_CONFIG.displayNames = {};
   DYNAMIC_FORK_CONFIG.order.forEach(fork => {
-    DYNAMIC_FORK_CONFIG.displayNames[fork] = DEFAULT_FORK_DISPLAY_NAMES[fork] || 
+    DYNAMIC_FORK_CONFIG.displayNames[fork] = DEFAULT_FORK_DISPLAY_NAMES[fork] ||
       fork.charAt(0) + fork.slice(1).toLowerCase();
   });
-  
+
   console.log('Fork configuration initialized:', DYNAMIC_FORK_CONFIG);
 }
 
@@ -156,26 +156,26 @@ export function getForkDisplayName(fork) {
 export function populateForkFilters(data) {
   // Initialize the fork configuration first
   initializeForkConfig(data);
-  
+
   const forkFilter = document.getElementById('forkFilter');
   const changeFilter = document.getElementById('changeFilter');
-  
+
   if (!forkFilter || !changeFilter) return;
-  
+
   // Clear existing options (except the first placeholder)
   forkFilter.innerHTML = '<option value="">Filter by fork...</option>';
   changeFilter.innerHTML = '<option value="">Filter by changes...</option>';
-  
+
   // Add options for each discovered fork
   DYNAMIC_FORK_CONFIG.order.forEach(fork => {
     const displayName = getForkDisplayName(fork);
-    
+
     // Add to fork filter
     const forkOption = document.createElement('option');
     forkOption.value = fork;
     forkOption.textContent = displayName;
     forkFilter.appendChild(forkOption);
-    
+
     // Add to change filter
     const changeOption = document.createElement('option');
     changeOption.value = fork;
