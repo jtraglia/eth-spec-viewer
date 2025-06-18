@@ -22,6 +22,7 @@ import { applyFilters, clearFilters, debouncedApplyFilters } from './filters.js'
 import { CATEGORY_TYPES } from './constants.js';
 import { logger, ErrorHandler } from './logger.js';
 import { getElement, getElements, addEventListenerSafe, scrollToElement, toggleVisibility } from './domUtils.js';
+import { initEnhancedSyntax } from './enhancedSyntax.js';
 
 /**
  * Copy text to clipboard with visual feedback
@@ -212,6 +213,10 @@ async function loadData() {
     // Syntax highlighting
     if (typeof Prism !== 'undefined') {
       Prism.highlightAll();
+      // Apply enhanced syntax highlighting after Prism
+      setTimeout(() => {
+        initEnhancedSyntax();
+      }, 200);
     }
     
     logger.info('Data load completed successfully');

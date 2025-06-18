@@ -388,6 +388,162 @@ pre[class*="language-"] {
   margin: 0 !important;
 }
 
+/* IDE-style Python Syntax Highlighting */
+
+/* Override Prism default styles for better Python highlighting */
+code[class*="language-python"],
+pre[class*="language-python"] {
+  background: #1e1e1e !important;
+  color: #d4d4d4 !important;
+}
+
+[data-theme="dark"] code[class*="language-python"],
+[data-theme="dark"] pre[class*="language-python"] {
+  background: #0d1117 !important;
+  color: #e6edf3 !important;
+}
+
+/* Keywords (def, class, if, for, etc.) */
+.token.keyword {
+  color: #569cd6 !important;
+  font-weight: bold !important;
+}
+
+/* Function names in definitions */
+.token.function {
+  color: #dcdcaa !important;
+  font-weight: bold !important;
+}
+
+/* Function calls - target function names when followed by parentheses */
+.token.function-call,
+.token.builtin {
+  color: #4ec9b0 !important;
+}
+
+/* Strings */
+.token.string {
+  color: #ce9178 !important;
+}
+
+/* Numbers */
+.token.number {
+  color: #b5cea8 !important;
+}
+
+/* Comments */
+.token.comment {
+  color: #6a9955 !important;
+  font-style: italic !important;
+}
+
+/* Operators (+, -, =, etc.) */
+.token.operator {
+  color: #d4d4d4 !important;
+}
+
+/* Punctuation (parentheses, brackets, etc.) */
+.token.punctuation {
+  color: #cccccc !important;
+}
+
+/* Class names */
+.token.class-name {
+  color: #4ec9b0 !important;
+  font-weight: bold !important;
+}
+
+/* Variables and parameters */
+.token.parameter,
+.token.variable {
+  color: #9cdcfe !important;
+}
+
+/* Boolean values */
+.token.boolean {
+  color: #569cd6 !important;
+  font-weight: bold !important;
+}
+
+/* None, True, False */
+.token.constant {
+  color: #569cd6 !important;
+  font-weight: bold !important;
+}
+
+/* Decorators (@property, etc.) */
+.token.decorator {
+  color: #ffcb6b !important;
+}
+
+/* Type hints */
+.token.type-hint {
+  color: #4ec9b0 !important;
+}
+
+/* Import statements */
+.token.namespace {
+  color: #9cdcfe !important;
+}
+
+/* Docstrings */
+.token.docstring {
+  color: #6a9955 !important;
+  font-style: italic !important;
+}
+
+/* Enhanced function call detection - more specific patterns */
+.language-python .token.function + .token.punctuation:first-of-type {
+  color: #cccccc !important;
+}
+
+/* Enhanced Python syntax highlighting tokens */
+
+/* Built-in functions (len, range, etc.) */
+.token.builtin {
+  color: #4ec9b0 !important;
+  font-weight: 500 !important;
+}
+
+/* Property access */
+.token.property {
+  color: #9cdcfe !important;
+}
+
+/* Enhanced function calls - distinct from function definitions */
+.token.function-call {
+  color: #c9a96e !important;
+}
+
+/* Variables */
+.token.variable {
+  color: #9cdcfe !important;
+}
+
+
+/* Self keyword enhancement */
+.token.keyword.self {
+  color: #c586c0 !important;
+  font-style: italic !important;
+}
+
+/* Make sure line numbers don't interfere with syntax highlighting */
+.line-numbers .line-numbers-rows {
+  border-right-color: #3e3e3e !important;
+}
+
+.line-numbers-rows > span:before {
+  color: #858585 !important;
+}
+
+[data-theme="dark"] .line-numbers .line-numbers-rows {
+  border-right-color: #30363d !important;
+}
+
+[data-theme="dark"] .line-numbers-rows > span:before {
+  color: #6e7681 !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .header-container {
