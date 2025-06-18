@@ -1,0 +1,293 @@
+/**
+ * Search and filtering functionality
+ */
+
+import { appState } from './state.js';
+import { CATEGORY_DISPLAY_NAMES } from './constants.js';
+
+/**
+ * Apply all active filters
+ */
+export function applyFilters() {
+  const searchInput = document.getElementById('searchInput').value.toLowerCase();
+  const forkFilter = document.getElementById('forkFilter').value;
+  const changeFilter = document.getElementById('changeFilter').value;
+  const typeFilter = document.getElementById('typeFilter').value;
+
+  appState.updateActiveFilters({
+    search: searchInput,
+    fork: forkFilter,
+    change: changeFilter,
+    type: typeFilter
+  });
+
+  updateActiveFiltersDisplay();
+  filterItems();
+
+  // Show/hide diff toggle based on whether we're filtering for a single type
+  const toggleDiffContainer = document.getElementById('toggleDiffContainer');
+  if (typeFilter) {
+    toggleDiffContainer.classList.remove('hidden');
+  } else {
+    toggleDiffContainer.classList.add('hidden');
+  }
+}
+
+/**
+ * Clear all filters
+ */
+export function clearFilters() {
+  document.getElementById('searchInput').value = '';
+  document.getElementById('forkFilter').value = '';
+  document.getElementById('changeFilter').value = '';
+  document.getElementById('typeFilter').value = '';
+  document.getElementById('searchClear').classList.add('hidden');
+
+  appState.clearFilters();
+  updateActiveFiltersDisplay();
+  filterItems();
+
+  document.getElementById('toggleDiffContainer').classList.add('hidden');
+}
+
+/**
+ * Update the display of active filters
+ */
+function updateActiveFiltersDisplay() {
+  const container = document.getElementById('activeFilters');
+  container.innerHTML = '';
+
+  const activeFilters = appState.getActiveFilters();
+  let hasFilters = false;
+
+  if (activeFilters.search) {
+    container.appendChild(createFilterBadge('Search', activeFilters.search));
+    hasFilters = true;
+  }
+
+  if (activeFilters.fork) {
+    container.appendChild(createFilterBadge('Fork', activeFilters.fork));
+    hasFilters = true;
+  }
+
+  if (activeFilters.change) {
+    container.appendChild(createFilterBadge('Changed in', activeFilters.change));
+    hasFilters = true;
+  }
+
+  if (activeFilters.type) {
+    const displayType = CATEGORY_DISPLAY_NAMES[activeFilters.type] || activeFilters.type;
+    container.appendChild(createFilterBadge('Type', displayType));
+    hasFilters = true;
+  }
+
+  if (activeFilters.deprecated) {
+    container.appendChild(createFilterBadge('Status', 'Deprecated'));
+    hasFilters = true;
+  }
+}
+
+/**
+ * Create a filter badge element
+ */
+function createFilterBadge(label, value) {
+  const badge = document.createElement('div');
+  badge.className = 'filter-badge';
+  badge.innerHTML = `${label}: ${value} <span class="filter-badge-remove">×</span>`;
+
+  badge.querySelector('.filter-badge-remove').addEventListener('click', () => {
+    // Remove this specific filter
+    switch(label) {
+      case 'Search':
+        document.getElementById('searchInput').value = '';
+        appState.updateActiveFilters({ search: '' });
+        document.getElementById('searchClear').classList.add('hidden');
+        break;
+      case 'Fork':
+        document.getElementById('forkFilter').value = '';
+        appState.updateActiveFilters({ fork: '' });
+        break;
+      case 'Changed in':
+        document.getElementById('changeFilter').value = '';
+        appState.updateActiveFilters({ change: '' });
+        break;
+      case 'Type':
+        document.getElementById('typeFilter').value = '';
+        appState.updateActiveFilters({ type: '' });
+        document.getElementById('toggleDiffContainer').classList.add('hidden');
+        break;
+      case 'Status':
+        appState.updateActiveFilters({ deprecated: false });
+        break;
+    }
+
+    updateActiveFiltersDisplay();
+    filterItems();
+  });
+
+  return badge;
+}
+
+/**
+ * Filter items based on active filters
+ */
+function filterItems() {
+  const activeFilters = appState.getActiveFilters();
+  
+  // 1. First handle the top-level category sections (Constants, Functions, etc.)
+  if (activeFilters.type) {
+    // Only open the type filter's section
+    document.querySelectorAll('body > details').forEach(section => {
+      if (section.querySelector('div').id === activeFilters.type) {
+        section.setAttribute('open', 'true');
+      } else {
+        section.removeAttribute('open');
+      }
+    });
+  }
+
+  // 2. Get all item sections (individual function/constant/etc. items)
+  const allSections = document.querySelectorAll('details.preset-group:not(.fork-code-block)');
+  const sectionContainers = document.querySelectorAll('details > div');
+  let visibleCount = 0;
+
+  // 3. Apply filters to each item
+  allSections.forEach(section => {
+    let isVisible = true;
+
+    // Check each filter
+    if (activeFilters.search && !section.dataset.name?.toLowerCase().includes(activeFilters.search)) {
+      isVisible = false;
+    }
+
+    if (activeFilters.fork && !section.dataset.forks?.includes(activeFilters.fork)) {
+      isVisible = false;
+    }
+
+    if (activeFilters.change && !section.dataset.changedInForks?.includes(activeFilters.change)) {
+      isVisible = false;
+    }
+
+    if (activeFilters.type && section.dataset.category !== activeFilters.type) {
+      isVisible = false;
+    }
+
+    if (activeFilters.deprecated && section.dataset.deprecated !== "true") {
+      isVisible = false;
+    }
+
+    // Apply visibility
+    section.classList.toggle('hidden', !isVisible);
+    if (activeFilters.search) {
+      if (isVisible) {
+        section.setAttribute('open', 'true');
+      } else {
+        section.removeAttribute('open');
+      }
+    }
+
+    // 4. Only handle fork code blocks for visible items
+    if (isVisible) {
+      visibleCount++;
+
+      // If filtering by fork, we need to prepare nested blocks but not auto-expand the parent
+      if (activeFilters.fork) {
+        // Get all nested code blocks
+        const forkBlocks = section.querySelectorAll('.expanded-content details.fork-code-block');
+        let foundMatchingFork = false;
+
+        forkBlocks.forEach(block => {
+          const fork = block.getAttribute('data-fork');
+
+          if (fork === activeFilters.fork) {
+            // This fork matches our filter - prepare it to be shown when parent is expanded
+            block.classList.remove('hidden');
+            block.setAttribute('open', 'true');
+            foundMatchingFork = true;
+
+            // Pre-highlight code
+            const codeElement = block.querySelector('code');
+            if (codeElement) {
+              // Queue for syntax highlighting
+              Prism.highlightElement(codeElement);
+            }
+          } else {
+            // This fork doesn't match - hide it
+            block.classList.add('hidden');
+          }
+        });
+
+        // Hide items with no matching fork
+        if (forkBlocks.length > 0 && !foundMatchingFork) {
+          section.classList.add('hidden');
+          visibleCount--;
+        }
+      } else {
+        // Not filtering by fork - ensure all fork blocks are visible
+        // But don't auto-expand parent items
+        const forkBlocks = section.querySelectorAll('.expanded-content details.fork-code-block');
+        forkBlocks.forEach(block => {
+          block.classList.remove('hidden');
+        });
+
+        // Make sure at least first fork block is open by default
+        // (but don't change parent item expansion state)
+        if (section.hasAttribute('open')) {
+          const firstBlock = forkBlocks[0];
+          if (firstBlock) {
+            firstBlock.setAttribute('open', 'true');
+            forkBlocks.forEach((block, index) => {
+              if (index > 0) block.removeAttribute('open');
+            });
+          }
+        }
+      }
+    }
+  });
+
+  // 5. Update phase-group visibility (hide empty groups)
+  sectionContainers.forEach(container => {
+    // Get the parent phase-groups
+    const phaseGroups = container.querySelectorAll('.phase-group');
+
+    // For each phase-group, hide if it has no visible children
+    phaseGroups.forEach(group => {
+      const hasVisibleChildren = group.querySelectorAll('details.preset-group:not(.hidden)').length > 0;
+      group.classList.toggle('hidden', !hasVisibleChildren);
+    });
+  });
+
+  // 6. Show message if no results
+  document.getElementById('noResults').classList.toggle('hidden', visibleCount > 0);
+
+  // Open outer <details> sections if any inner section is visible
+  if (activeFilters.search) {
+    document.querySelectorAll('body > details').forEach(section => {
+      const innerVisible = Array.from(
+        section.querySelectorAll('details.preset-group')
+      ).some(el => el.offsetParent !== null);
+
+      if (innerVisible) {
+        section.setAttribute('open', 'true');
+      } else {
+        section.removeAttribute('open');
+      }
+    });
+  }
+
+  // If search was cleared, collapse all preset-group details
+  if (!activeFilters.search) {
+    // Collapse all outer top-level sections
+    document.querySelectorAll('body > details').forEach(section => {
+      section.removeAttribute('open');
+    });
+
+    // Optional: collapse fork-level blocks too
+    document.querySelectorAll('details.fork-code-block').forEach(section => {
+      section.removeAttribute('open');
+    });
+  }
+
+  // 7. Refresh syntax highlighting
+  Prism.highlightAll();
+}
