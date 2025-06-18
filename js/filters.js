@@ -1,5 +1,12 @@
 /**
- * Search and filtering functionality
+ * Search and filtering functionality for the Ethereum Consensus Specifications viewer
+ * 
+ * Provides real-time search and filtering capabilities for specification items.
+ * Supports filtering by search terms, specific forks, changes, item types, and
+ * deprecated status. Includes performance optimizations like debouncing and
+ * batched DOM operations.
+ * 
+ * @module filters
  */
 
 import { appState } from './state.js';

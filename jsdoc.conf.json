@@ -1,0 +1,20 @@
+{
+  "source": {
+    "include": ["./js/"],
+    "includePattern": "\\.(js)$",
+    "exclude": ["node_modules/"]
+  },
+  "opts": {
+    "destination": "./docs/",
+    "recurse": true
+  },
+  "plugins": ["plugins/markdown"],
+  "templates": {
+    "cleverLinks": false,
+    "monospaceLinks": false
+  },
+  "metadata": {
+    "title": "Ethereum Consensus Specifications Viewer API Documentation",
+    "description": "JavaScript API documentation for the Ethereum Consensus Specifications viewer application"
+  }
+}

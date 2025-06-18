@@ -1,5 +1,9 @@
 /**
- * Variables (Constants, Presets, Configurations) rendering
+ * Variables (Constants, Presets, Configurations) rendering module
+ * 
+ * Handles the rendering and display of Ethereum consensus specification variables
+ * including constants, preset variables, and configuration variables. These variables
+ * can vary between different forks and network configurations.
  */
 
 import { 
@@ -16,7 +20,12 @@ import {
 import { appState } from './state.js';
 
 /**
- * Get fork value from base and fork arrays
+ * Get the value of a variable for a specific fork
+ * 
+ * @param {string} fk - Fork name to get value for
+ * @param {Object} baseVal - Base variable object with introducingFork, value, type
+ * @param {Array} forkArr - Array of fork-specific overrides
+ * @returns {{value: any, type: string}} Variable value and type for the fork
  */
 function getForkValue(fk, baseVal, forkArr) {
   if (!baseVal) return { value: undefined, type: "" };

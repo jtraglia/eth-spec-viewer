@@ -1,36 +1,67 @@
 /**
- * Dark mode functionality
+ * Dark mode functionality for the Ethereum Consensus Specifications viewer
+ * 
+ * Handles theme switching between light and dark modes, with persistence
+ * and system preference detection.
  */
 
 /**
  * Initialize dark mode toggle and preference handling
+ * 
+ * Sets up the dark mode toggle functionality including:
+ * - Reading saved user preference from localStorage
+ * - Detecting system preference for dark mode
+ * - Setting initial theme state
+ * - Adding event listener for theme switching
+ * - Refreshing syntax highlighting when theme changes
+ * 
+ * @throws {Error} If the dark mode toggle element is not found
  */
 export function initDarkMode() {
   const darkModeToggle = document.getElementById('darkModeToggle');
+  
+  if (!darkModeToggle) {
+    throw new Error('Dark mode toggle element not found');
+  }
 
   // Check for saved preference or system preference
   const savedTheme = localStorage.getItem('theme');
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-  // Set initial state
+  // Set initial state based on saved preference or system preference
   if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-    document.documentElement.setAttribute('data-theme', 'dark');
+    setDarkMode(true);
     darkModeToggle.checked = true;
+  } else {
+    setDarkMode(false);
+    darkModeToggle.checked = false;
   }
 
-  // Toggle dark mode
+  // Toggle dark mode when user clicks the toggle
   darkModeToggle.addEventListener('change', function() {
-    if (this.checked) {
-      document.documentElement.setAttribute('data-theme', 'dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      localStorage.setItem('theme', 'light');
-    }
-
-    // Refresh syntax highlighting
-    if (typeof Prism !== 'undefined') {
-      Prism.highlightAll();
-    }
+    const isDarkMode = this.checked;
+    setDarkMode(isDarkMode);
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   });
+}
+
+/**
+ * Apply or remove dark mode theme
+ * 
+ * @param {boolean} enabled - Whether to enable dark mode
+ */
+function setDarkMode(enabled) {
+  if (enabled) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+
+  // Refresh syntax highlighting to match the new theme
+  if (typeof Prism !== 'undefined') {
+    // Use setTimeout to ensure theme CSS has been applied
+    setTimeout(() => {
+      Prism.highlightAll();
+    }, 0);
+  }
 }

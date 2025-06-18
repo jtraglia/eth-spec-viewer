@@ -1,5 +1,17 @@
 /**
- * Main application entry point
+ * Main application entry point for the Ethereum Consensus Specifications viewer
+ * 
+ * This module serves as the central coordinator for the entire application,
+ * handling initialization, data loading, event setup, and application lifecycle.
+ * 
+ * Key responsibilities:
+ * - Initialize all application modules (dark mode, event listeners, etc.)
+ * - Load and process the pyspec.json data file
+ * - Set up error handling and fallback mechanisms
+ * - Handle direct links to specific specification items
+ * - Coordinate the rendering of variables and specification items
+ * 
+ * @module main
  */
 
 import { appState } from './state.js';
@@ -11,7 +23,15 @@ import { CATEGORY_TYPES } from './constants.js';
 import { logger, ErrorHandler } from './logger.js';
 
 /**
- * Handle direct links to items
+ * Handle direct links to specific specification items
+ * 
+ * Processes URL hash fragments to automatically open and scroll to
+ * specific items when the page loads. Useful for sharing links to
+ * specific functions, constants, or other specification elements.
+ * 
+ * @example
+ * // URL like https://example.com/#functions-some_function
+ * // Will automatically open the Functions section and scroll to some_function
  */
 function handleDirectLinks() {
   // Check if URL has a hash
@@ -151,7 +171,14 @@ function initEventListeners() {
 }
 
 /**
- * Initialize deprecated items
+ * Initialize deprecated items list
+ * 
+ * Marks specific specification items as deprecated. These items will be
+ * visually distinguished in the UI and can be filtered separately.
+ * 
+ * @example
+ * // To mark an item as deprecated:
+ * // appState.addDeprecatedItem('OLD_CONSTANT_NAME');
  */
 function initDeprecatedItems() {
   // Add any deprecated items here
@@ -219,9 +246,15 @@ async function loadData() {
 }
 
 /**
- * Fallback data function to show example data if JSON loading fails
+ * Load fallback example data if main JSON loading fails
+ * 
+ * Provides a basic set of example data to demonstrate the application
+ * functionality when the main pyspec.json file cannot be loaded.
+ * Displays a notice to inform users they're viewing example data.
+ * 
+ * @param {number} [delay=3000] - Delay in milliseconds before showing fallback
  */
-function loadFallbackData() {
+function loadFallbackData(delay = 3000) {
   console.log("Loading fallback data");
 
   // Example data structure that matches expected format
@@ -264,7 +297,7 @@ function loadFallbackData() {
     }
   };
 
-  // If fetch fails to load data after 3 seconds, use fallback data
+  // If fetch fails to load data after specified delay, use fallback data
   setTimeout(() => {
     if (Object.keys(appState.getJsonData()).length === 0) {
       console.log("Using fallback data");
@@ -293,7 +326,7 @@ function loadFallbackData() {
 
       Prism.highlightAll();
     }
-  }, 3000);
+  }, delay);
 }
 
 // Initialize application
