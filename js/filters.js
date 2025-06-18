@@ -4,6 +4,7 @@
 
 import { appState } from './state.js';
 import { CATEGORY_DISPLAY_NAMES } from './constants.js';
+import { debounce, batchDOMOperations } from './performance.js';
 
 /**
  * Apply all active filters
@@ -132,51 +133,76 @@ function createFilterBadge(label, value) {
  * Filter items based on active filters
  */
 function filterItems() {
+  // Use requestAnimationFrame to batch DOM operations for better performance
+  batchDOMOperations(() => {
+    performFiltering();
+  });
+}
+
+/**
+ * Perform the actual filtering logic
+ */
+function performFiltering() {
   const activeFilters = appState.getActiveFilters();
+  
+  // Cache DOM queries for better performance
+  const topLevelSections = document.querySelectorAll('body > details');
+  const allSections = document.querySelectorAll('details.preset-group:not(.fork-code-block)');
+  let visibleCount = 0;
   
   // 1. First handle the top-level category sections (Constants, Functions, etc.)
   if (activeFilters.type) {
     // Only open the type filter's section
-    document.querySelectorAll('body > details').forEach(section => {
-      if (section.querySelector('div').id === activeFilters.type) {
+    for (const section of topLevelSections) {
+      const sectionDiv = section.querySelector('div');
+      if (sectionDiv && sectionDiv.id === activeFilters.type) {
         section.setAttribute('open', 'true');
       } else {
         section.removeAttribute('open');
       }
-    });
+    }
   }
 
-  // 2. Get all item sections (individual function/constant/etc. items)
-  const allSections = document.querySelectorAll('details.preset-group:not(.fork-code-block)');
-  const sectionContainers = document.querySelectorAll('details > div');
-  let visibleCount = 0;
+  // 2. Batch process all items for better performance
+  const sectionsToUpdate = [];
+  const forkBlocksToUpdate = [];
 
-  // 3. Apply filters to each item
-  allSections.forEach(section => {
+  // 3. Apply filters to each item - optimized for performance
+  for (const section of allSections) {
     let isVisible = true;
-
-    // Check each filter
-    if (activeFilters.search && !section.dataset.name?.toLowerCase().includes(activeFilters.search)) {
-      isVisible = false;
-    }
-
-    if (activeFilters.fork && !section.dataset.forks?.includes(activeFilters.fork)) {
-      isVisible = false;
-    }
-
-    if (activeFilters.change && !section.dataset.changedInForks?.includes(activeFilters.change)) {
-      isVisible = false;
-    }
-
+    
+    // Early exit optimizations - check most restrictive filters first
     if (activeFilters.type && section.dataset.category !== activeFilters.type) {
       isVisible = false;
-    }
-
-    if (activeFilters.deprecated && section.dataset.deprecated !== "true") {
+    } else if (activeFilters.search) {
+      const name = section.dataset.name;
+      if (!name || !name.includes(activeFilters.search)) {
+        isVisible = false;
+      }
+    } else if (activeFilters.fork) {
+      const forks = section.dataset.forks;
+      if (!forks || !forks.includes(activeFilters.fork)) {
+        isVisible = false;
+      }
+    } else if (activeFilters.change) {
+      const changedForks = section.dataset.changedInForks;
+      if (!changedForks || !changedForks.includes(activeFilters.change)) {
+        isVisible = false;
+      }
+    } else if (activeFilters.deprecated && section.dataset.deprecated !== "true") {
       isVisible = false;
     }
 
-    // Apply visibility
+    // Batch DOM updates
+    sectionsToUpdate.push({ section, isVisible });
+    
+    if (isVisible) {
+      visibleCount++;
+    }
+  }
+  
+  // Apply all DOM updates in one batch
+  for (const { section, isVisible } of sectionsToUpdate) {
     section.classList.toggle('hidden', !isVisible);
     if (activeFilters.search) {
       if (isVisible) {
@@ -188,15 +214,13 @@ function filterItems() {
 
     // 4. Only handle fork code blocks for visible items
     if (isVisible) {
-      visibleCount++;
-
       // If filtering by fork, we need to prepare nested blocks but not auto-expand the parent
       if (activeFilters.fork) {
         // Get all nested code blocks
         const forkBlocks = section.querySelectorAll('.expanded-content details.fork-code-block');
         let foundMatchingFork = false;
 
-        forkBlocks.forEach(block => {
+        for (const block of forkBlocks) {
           const fork = block.getAttribute('data-fork');
 
           if (fork === activeFilters.fork) {
@@ -205,17 +229,17 @@ function filterItems() {
             block.setAttribute('open', 'true');
             foundMatchingFork = true;
 
-            // Pre-highlight code
+            // Pre-highlight code (defer to avoid blocking)
             const codeElement = block.querySelector('code');
             if (codeElement) {
               // Queue for syntax highlighting
-              Prism.highlightElement(codeElement);
+              setTimeout(() => Prism.highlightElement(codeElement), 0);
             }
           } else {
             // This fork doesn't match - hide it
             block.classList.add('hidden');
           }
-        });
+        }
 
         // Hide items with no matching fork
         if (forkBlocks.length > 0 && !foundMatchingFork) {
@@ -226,9 +250,9 @@ function filterItems() {
         // Not filtering by fork - ensure all fork blocks are visible
         // But don't auto-expand parent items
         const forkBlocks = section.querySelectorAll('.expanded-content details.fork-code-block');
-        forkBlocks.forEach(block => {
+        for (const block of forkBlocks) {
           block.classList.remove('hidden');
-        });
+        }
 
         // Make sure at least first fork block is open by default
         // (but don't change parent item expansion state)
@@ -236,14 +260,14 @@ function filterItems() {
           const firstBlock = forkBlocks[0];
           if (firstBlock) {
             firstBlock.setAttribute('open', 'true');
-            forkBlocks.forEach((block, index) => {
-              if (index > 0) block.removeAttribute('open');
-            });
+            for (let i = 1; i < forkBlocks.length; i++) {
+              forkBlocks[i].removeAttribute('open');
+            }
           }
         }
       }
     }
-  });
+  }
 
   // 5. Update phase-group visibility (hide empty groups)
   // Get ALL phase groups across all categories
@@ -301,6 +325,15 @@ function filterItems() {
     }
   }
 
-  // 7. Refresh syntax highlighting
-  Prism.highlightAll();
+  // 7. Refresh syntax highlighting (defer to avoid blocking)
+  setTimeout(() => {
+    if (typeof Prism !== 'undefined') {
+      Prism.highlightAll();
+    }
+  }, 0);
 }
+
+/**
+ * Debounced version of applyFilters for search input
+ */
+export const debouncedApplyFilters = debounce(applyFilters, 200);

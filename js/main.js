@@ -6,7 +6,7 @@ import { appState } from './state.js';
 import { initDarkMode } from './darkMode.js';
 import { addVariables } from './variables.js';
 import { addItems } from './items.js';
-import { applyFilters, clearFilters } from './filters.js';
+import { applyFilters, clearFilters, debouncedApplyFilters } from './filters.js';
 import { CATEGORY_TYPES } from './constants.js';
 
 /**
@@ -53,7 +53,7 @@ function initEventListeners() {
   searchInput.addEventListener('input', function() {
     const hasText = this.value.length > 0;
     searchClear.classList.toggle('hidden', !hasText);
-    applyFilters();
+    debouncedApplyFilters();
   });
 
   searchClear.addEventListener('click', function() {
