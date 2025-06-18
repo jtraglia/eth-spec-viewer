@@ -211,6 +211,19 @@ details[open] .summary-icon::before {
   background: var(--expanded-bg);
 }
 
+/* Remove padding around code blocks */
+.expanded-content pre {
+  margin: 0 !important;
+}
+
+.expanded-content .fork-code-block {
+  margin: 0;
+}
+
+.expanded-content .fork-code-block .expanded-content {
+  padding: 0;
+}
+
 .badge {
   display: inline-block;
   color: #fff;
@@ -342,6 +355,35 @@ details[open] .summary-icon::before {
   text-align: center;
   font-style: italic;
   color: var(--text-color);
+}
+
+/* Copy button styling for code blocks */
+.prism-toolbar {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  margin: 0 !important;
+  padding: 8px !important;
+}
+
+.prism-toolbar .toolbar-item button {
+  background: rgba(0, 0, 0, 0.6) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 4px !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+}
+
+.prism-toolbar .toolbar-item button:hover {
+  background: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Make code blocks have relative positioning for absolute copy button */
+pre[class*="language-"] {
+  position: relative !important;
+  margin: 0 !important;
 }
 
 /* Responsive adjustments */
