@@ -8,6 +8,7 @@ import { addVariables } from './variables.js';
 import { addItems } from './items.js';
 import { applyFilters, clearFilters, debouncedApplyFilters } from './filters.js';
 import { CATEGORY_TYPES } from './constants.js';
+import { logger, ErrorHandler } from './logger.js';
 
 /**
  * Handle direct links to items
@@ -46,47 +47,107 @@ function handleDirectLinks() {
  * Initialize event listeners
  */
 function initEventListeners() {
-  // Search input event
-  const searchInput = document.getElementById('searchInput');
-  const searchClear = document.getElementById('searchClear');
+  try {
+    logger.info('Initializing event listeners');
+    
+    // Search input event
+    const searchInput = document.getElementById('searchInput');
+    const searchClear = document.getElementById('searchClear');
 
-  searchInput.addEventListener('input', function() {
-    const hasText = this.value.length > 0;
-    searchClear.classList.toggle('hidden', !hasText);
-    debouncedApplyFilters();
-  });
+    if (!searchInput || !searchClear) {
+      throw new Error('Required search elements not found');
+    }
 
-  searchClear.addEventListener('click', function() {
-    searchInput.value = '';
-    this.classList.add('hidden');
-    applyFilters();
-  });
+    searchInput.addEventListener('input', function() {
+      try {
+        const hasText = this.value.length > 0;
+        searchClear.classList.toggle('hidden', !hasText);
+        debouncedApplyFilters();
+      } catch (error) {
+        ErrorHandler.handle(error, 'Search input handler');
+      }
+    });
 
-  // Filter buttons
-  document.getElementById('applyFilters').addEventListener('click', applyFilters);
-  document.getElementById('clearFilters').addEventListener('click', clearFilters);
+    searchClear.addEventListener('click', function() {
+      try {
+        searchInput.value = '';
+        this.classList.add('hidden');
+        applyFilters();
+      } catch (error) {
+        ErrorHandler.handle(error, 'Search clear handler');
+      }
+    });
 
-  // Diff toggle
-  document.getElementById('showDiffToggle').addEventListener('change', function() {
-    loadData(); // Reload and re-render to apply diff highlighting
-  });
-
-  // Share button click event (delegation)
-  document.addEventListener('click', function(e) {
-    if (e.target.closest('.share-button')) {
-      const shareButton = e.target.closest('.share-button');
-      const link = shareButton.dataset.link;
-
-      // Copy link to clipboard
-      navigator.clipboard.writeText(link).then(() => {
-        // Show a brief visual confirmation
-        shareButton.innerHTML = '<i class="fas fa-check"></i>';
-        setTimeout(() => {
-          shareButton.innerHTML = '<i class="fas fa-link"></i>';
-        }, 1000);
+    // Filter buttons
+    const applyButton = document.getElementById('applyFilters');
+    const clearButton = document.getElementById('clearFilters');
+    
+    if (applyButton) {
+      applyButton.addEventListener('click', () => {
+        try {
+          applyFilters();
+        } catch (error) {
+          ErrorHandler.handle(error, 'Apply filters');
+        }
       });
     }
-  });
+    
+    if (clearButton) {
+      clearButton.addEventListener('click', () => {
+        try {
+          clearFilters();
+        } catch (error) {
+          ErrorHandler.handle(error, 'Clear filters');
+        }
+      });
+    }
+
+    // Diff toggle
+    const diffToggle = document.getElementById('showDiffToggle');
+    if (diffToggle) {
+      diffToggle.addEventListener('change', function() {
+        try {
+          logger.debug('Diff toggle changed, reloading data');
+          loadData(); // Reload and re-render to apply diff highlighting
+        } catch (error) {
+          ErrorHandler.handle(error, 'Diff toggle handler');
+        }
+      });
+    }
+
+    // Share button click event (delegation)
+    document.addEventListener('click', function(e) {
+      try {
+        if (e.target.closest('.share-button')) {
+          const shareButton = e.target.closest('.share-button');
+          const link = shareButton.dataset.link;
+
+          if (!link) {
+            logger.warn('Share button clicked but no link found');
+            return;
+          }
+
+          // Copy link to clipboard
+          navigator.clipboard.writeText(link).then(() => {
+            logger.debug('Link copied to clipboard:', link);
+            // Show a brief visual confirmation
+            shareButton.innerHTML = '<i class="fas fa-check"></i>';
+            setTimeout(() => {
+              shareButton.innerHTML = '<i class="fas fa-link"></i>';
+            }, 1000);
+          }).catch(error => {
+            ErrorHandler.handle(error, 'Clipboard copy', true);
+          });
+        }
+      } catch (error) {
+        ErrorHandler.handle(error, 'Share button handler');
+      }
+    });
+    
+    logger.info('Event listeners initialized successfully');
+  } catch (error) {
+    ErrorHandler.handle(error, 'Event listener initialization', true);
+  }
 }
 
 /**
@@ -101,13 +162,21 @@ function initDeprecatedItems() {
  * Load data and render everything
  */
 async function loadData() {
-  try {
+  return ErrorHandler.handleAsync(async () => {
+    logger.info('Starting data load');
+    
     const resp = await fetch("pyspec.json");
-    if (!resp.ok) throw new Error(`HTTP error: ${resp.status}`);
+    if (!resp.ok) {
+      throw new Error(`Failed to fetch pyspec.json: HTTP ${resp.status} ${resp.statusText}`);
+    }
+    
     const jsonData = await resp.json();
+    logger.info('Successfully loaded JSON data', { size: JSON.stringify(jsonData).length });
     
     appState.setJsonData(jsonData);
 
+    // Render different categories
+    logger.debug('Rendering variables and items');
     addVariables(jsonData, CATEGORY_TYPES.CONSTANTS);
     addVariables(jsonData, CATEGORY_TYPES.PRESETS);
     addVariables(jsonData, CATEGORY_TYPES.CONFIG);
@@ -117,22 +186,36 @@ async function loadData() {
     addItems(jsonData, CATEGORY_TYPES.FUNCTIONS);
 
     // Apply any active filters
+    logger.debug('Applying initial filters');
     applyFilters();
 
     // Handle direct links
     handleDirectLinks();
 
-  } catch (err) {
-    console.error("Error loading data:", err);
-    // Display error message to user
-    document.getElementById('noResults').innerHTML = `
-      <p>Error loading specification data: ${err.message}</p>
-      <p>Make sure pyspec.json is available in the same directory as this HTML file.</p>
-    `;
-    document.getElementById('noResults').classList.remove('hidden');
-  }
-
-  Prism.highlightAll();
+    // Syntax highlighting
+    if (typeof Prism !== 'undefined') {
+      Prism.highlightAll();
+    }
+    
+    logger.info('Data load completed successfully');
+  }, 'Data loading', 3).catch(error => {
+    logger.error('Failed to load data after all retries:', error);
+    
+    // Display user-friendly error message
+    const noResults = document.getElementById('noResults');
+    if (noResults) {
+      noResults.innerHTML = `
+        <p><strong>Error loading specification data:</strong> ${error.message}</p>
+        <p>Please check that pyspec.json is available and try refreshing the page.</p>
+        <button onclick="window.location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+          Retry
+        </button>
+      `;
+      noResults.classList.remove('hidden');
+    }
+    
+    throw error; // Re-throw for any calling code
+  });
 }
 
 /**
@@ -214,8 +297,25 @@ function loadFallbackData() {
 }
 
 // Initialize application
-initDarkMode();
-initEventListeners();
-initDeprecatedItems();
-loadData();
-loadFallbackData(); // Add fallback data if the main load fails
+(async function initializeApp() {
+  try {
+    logger.info('Starting application initialization');
+    
+    // Initialize core functionality
+    initDarkMode();
+    initEventListeners();
+    initDeprecatedItems();
+    
+    // Load data with fallback
+    try {
+      await loadData();
+      logger.info('Application initialized successfully');
+    } catch (error) {
+      logger.warn('Main data loading failed, trying fallback data');
+      loadFallbackData();
+    }
+    
+  } catch (error) {
+    ErrorHandler.handle(error, 'Application initialization', true);
+  }
+})();

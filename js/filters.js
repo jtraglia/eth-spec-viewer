@@ -5,32 +5,47 @@
 import { appState } from './state.js';
 import { CATEGORY_DISPLAY_NAMES } from './constants.js';
 import { debounce, batchDOMOperations } from './performance.js';
+import { logger, ErrorHandler } from './logger.js';
 
 /**
  * Apply all active filters
  */
 export function applyFilters() {
-  const searchInput = document.getElementById('searchInput').value.toLowerCase();
-  const forkFilter = document.getElementById('forkFilter').value;
-  const changeFilter = document.getElementById('changeFilter').value;
-  const typeFilter = document.getElementById('typeFilter').value;
+  try {
+    logger.debug('Applying filters');
+    
+    const searchInput = document.getElementById('searchInput');
+    const forkFilter = document.getElementById('forkFilter');
+    const changeFilter = document.getElementById('changeFilter');
+    const typeFilter = document.getElementById('typeFilter');
+    
+    if (!searchInput || !forkFilter || !changeFilter || !typeFilter) {
+      throw new Error('Filter elements not found');
+    }
 
-  appState.updateActiveFilters({
-    search: searchInput,
-    fork: forkFilter,
-    change: changeFilter,
-    type: typeFilter
-  });
+    appState.updateActiveFilters({
+      search: searchInput.value.toLowerCase(),
+      fork: forkFilter.value,
+      change: changeFilter.value,
+      type: typeFilter.value
+    });
 
-  updateActiveFiltersDisplay();
-  filterItems();
+    updateActiveFiltersDisplay();
+    filterItems();
 
-  // Show/hide diff toggle based on whether we're filtering for a single type
-  const toggleDiffContainer = document.getElementById('toggleDiffContainer');
-  if (typeFilter) {
-    toggleDiffContainer.classList.remove('hidden');
-  } else {
-    toggleDiffContainer.classList.add('hidden');
+    // Show/hide diff toggle based on whether we're filtering for a single type
+    const toggleDiffContainer = document.getElementById('toggleDiffContainer');
+    if (toggleDiffContainer) {
+      if (typeFilter.value) {
+        toggleDiffContainer.classList.remove('hidden');
+      } else {
+        toggleDiffContainer.classList.add('hidden');
+      }
+    }
+    
+    logger.debug('Filters applied successfully', appState.getActiveFilters());
+  } catch (error) {
+    ErrorHandler.handle(error, 'Apply filters');
   }
 }
 
