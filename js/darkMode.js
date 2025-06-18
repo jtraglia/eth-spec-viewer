@@ -36,8 +36,9 @@ export function initDarkMode() {
   }
 
   // Toggle dark mode when user clicks the toggle
-  addEventListenerSafe(darkModeToggle, 'change', function() {
-    const isDarkMode = this.checked;
+  addEventListenerSafe(darkModeToggle, 'change', function(event) {
+    const isDarkMode = event.target.checked;
+    console.log('Toggle clicked, isDarkMode:', isDarkMode); // Debug log
     setDarkMode(isDarkMode);
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
   });
@@ -49,10 +50,16 @@ export function initDarkMode() {
  * @param {boolean} enabled - Whether to enable dark mode
  */
 function setDarkMode(enabled) {
+  console.log('Setting dark mode:', enabled); // Debug log
+  
   if (enabled) {
     document.documentElement.setAttribute('data-theme', 'dark');
+    document.body.setAttribute('data-theme', 'dark');
+    console.log('Dark theme applied'); // Debug log
   } else {
     document.documentElement.removeAttribute('data-theme');
+    document.body.removeAttribute('data-theme');
+    console.log('Light theme applied'); // Debug log
   }
 
   // Refresh syntax highlighting to match the new theme

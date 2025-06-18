@@ -20,6 +20,7 @@
   --deprecated-bg: #ffe6e6;
 }
 
+:root[data-theme="dark"],
 [data-theme="dark"] {
   --bg-color: #1e1e1e;
   --text-color: #e0e0e0;
@@ -138,13 +139,22 @@ body {
   width: 18px;
   left: 3px;
   bottom: 2px;
-  background-color: var(--text-color);
+  background-color: #ffffff;
   border-radius: 50%;
   transition: .4s;
 }
 
+input:checked + .toggle-slider {
+  background-color: #4CAF50;
+  border-color: #4CAF50;
+}
+
 input:checked + .toggle-slider:before {
   transform: translateX(26px);
+}
+
+[data-theme="dark"] .toggle-slider:before {
+  background-color: #ffffff;
 }
 
 .phase-group {
