@@ -246,15 +246,21 @@ function filterItems() {
   });
 
   // 5. Update phase-group visibility (hide empty groups)
-  sectionContainers.forEach(container => {
-    // Get the parent phase-groups
-    const phaseGroups = container.querySelectorAll('.phase-group');
-
-    // For each phase-group, hide if it has no visible children
-    phaseGroups.forEach(group => {
-      const hasVisibleChildren = group.querySelectorAll('details.preset-group:not(.hidden)').length > 0;
-      group.classList.toggle('hidden', !hasVisibleChildren);
-    });
+  // Get ALL phase groups across all categories
+  const allPhaseGroups = document.querySelectorAll('.phase-group');
+  
+  allPhaseGroups.forEach(group => {
+    // Check if this phase group has any visible preset-group items
+    const visibleItems = Array.from(group.querySelectorAll('details.preset-group:not(.fork-code-block)')).filter(
+      item => !item.classList.contains('hidden')
+    );
+    
+    // Hide the phase group if it has no visible items
+    if (visibleItems.length === 0) {
+      group.style.display = 'none';
+    } else {
+      group.style.display = '';
+    }
   });
 
   // 6. Show message if no results
@@ -286,6 +292,13 @@ function filterItems() {
     document.querySelectorAll('details.fork-code-block').forEach(section => {
       section.removeAttribute('open');
     });
+    
+    // Show all phase groups when no filters are active
+    if (!activeFilters.fork && !activeFilters.change && !activeFilters.type && !activeFilters.deprecated) {
+      document.querySelectorAll('.phase-group').forEach(group => {
+        group.style.display = '';
+      });
+    }
   }
 
   // 7. Refresh syntax highlighting
