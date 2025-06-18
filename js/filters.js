@@ -174,7 +174,7 @@ function performFiltering() {
   const activeFilters = appState.getActiveFilters();
   
   // Cache DOM queries for better performance
-  const topLevelSections = document.querySelectorAll('body > details');
+  const topLevelSections = document.querySelectorAll('main section > details');
   const allSections = document.querySelectorAll('details.preset-group:not(.fork-code-block)');
   let visibleCount = 0;
   
@@ -320,7 +320,7 @@ function performFiltering() {
 
   // Open outer <details> sections if any inner section is visible
   if (activeFilters.search) {
-    document.querySelectorAll('body > details').forEach(section => {
+    document.querySelectorAll('main section > details').forEach(section => {
       const innerVisible = Array.from(
         section.querySelectorAll('details.preset-group')
       ).some(el => el.offsetParent !== null);
@@ -336,7 +336,7 @@ function performFiltering() {
   // If search was cleared, collapse all preset-group details
   if (!activeFilters.search) {
     // Collapse all outer top-level sections
-    document.querySelectorAll('body > details').forEach(section => {
+    document.querySelectorAll('main section > details').forEach(section => {
       section.removeAttribute('open');
     });
 

@@ -20,27 +20,27 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-  <div class="header-container">
+  <header class="header-container">
     <h1>Ethereum Consensus Specifications</h1>
 
-    <div class="toggle-container">
-      <i class="fas fa-sun"></i>
-      <label class="toggle-switch">
-        <input type="checkbox" id="darkModeToggle">
-        <span class="toggle-slider"></span>
+    <div class="toggle-container" role="group" aria-label="Theme toggle">
+      <i class="fas fa-sun" aria-hidden="true"></i>
+      <label class="toggle-switch" for="darkModeToggle">
+        <input type="checkbox" id="darkModeToggle" aria-label="Toggle dark mode">
+        <span class="toggle-slider" aria-hidden="true"></span>
       </label>
-      <i class="fas fa-moon"></i>
+      <i class="fas fa-moon" aria-hidden="true"></i>
     </div>
-  </div>
+  </header>
 
-  <div class="controls-container">
+  <nav class="controls-container" role="navigation" aria-label="Search and filter controls">
     <div class="search-container">
-      <input type="text" id="searchInput" placeholder="Search specifications...">
-      <button id="searchClear" class="hidden">&times;</button>
+      <input type="text" id="searchInput" placeholder="Search specifications..." aria-label="Search specifications">
+      <button id="searchClear" class="hidden" aria-label="Clear search">&times;</button>
     </div>
 
     <div class="filter-container">
-      <select id="forkFilter" class="filter-select">
+      <select id="forkFilter" class="filter-select" aria-label="Filter by fork">
         <option value="">Filter by fork...</option>
         <option value="PHASE0">Phase 0</option>
         <option value="ALTAIR">Altair</option>
@@ -51,7 +51,7 @@
         <option value="FULU">Fulu</option>
       </select>
 
-      <select id="changeFilter" class="filter-select">
+      <select id="changeFilter" class="filter-select" aria-label="Filter by changes">
         <option value="">Filter by changes...</option>
         <option value="PHASE0">Changed in Phase 0</option>
         <option value="ALTAIR">Changed in Altair</option>
@@ -62,7 +62,7 @@
         <option value="FULU">Changed in Fulu</option>
       </select>
 
-      <select id="typeFilter" class="filter-select">
+      <select id="typeFilter" class="filter-select" aria-label="Filter by type">
         <option value="">Filter by type...</option>
         <option value="constant_vars">Constants</option>
         <option value="preset_vars">Preset Variables</option>
@@ -76,73 +76,89 @@
       <button id="applyFilters" class="filter-button">Apply Filters</button>
       <button id="clearFilters" class="filter-button">Clear Filters</button>
     </div>
-  </div>
+  </nav>
 
   <div id="activeFilters" class="filter-container"></div>
 
   <div id="toggleDiffContainer" class="toggle-container hidden">
     <label>
       Show diff between upgrades
-      <input type="checkbox" id="showDiffToggle" class="show-diff-checkbox">
+      <input type="checkbox" id="showDiffToggle" class="show-diff-checkbox" aria-label="Show diff between upgrades">
     </label>
   </div>
 
-  <details>
-    <summary>
-      <span class="summary-icon"></span>
-      Constants
-    </summary>
-    <div id="constant_vars"></div>
-  </details>
+  <main role="main" aria-label="Ethereum Consensus Specifications">
+    <section>
+      <details>
+        <summary>
+          <span class="summary-icon"></span>
+          Constants
+        </summary>
+        <div id="constant_vars"></div>
+      </details>
+    </section>
 
-  <details>
-    <summary>
-      <span class="summary-icon"></span>
-      Preset Variables
-    </summary>
-    <div id="preset_vars"></div>
-  </details>
+    <section>
+      <details>
+        <summary>
+          <span class="summary-icon"></span>
+          Preset Variables
+        </summary>
+        <div id="preset_vars"></div>
+      </details>
+    </section>
 
-  <details>
-    <summary>
-      <span class="summary-icon"></span>
-      Configuration Variables
-    </summary>
-    <div id="config_vars"></div>
-  </details>
+    <section>
+      <details>
+        <summary>
+          <span class="summary-icon"></span>
+          Configuration Variables
+        </summary>
+        <div id="config_vars"></div>
+      </details>
+    </section>
 
-  <details>
-    <summary>
-      <span class="summary-icon"></span>
-      Custom Types
-    </summary>
-    <div id="custom_types"></div>
-  </details>
+    <section>
+      <details>
+        <summary>
+          <span class="summary-icon"></span>
+          Custom Types
+        </summary>
+        <div id="custom_types"></div>
+      </details>
+    </section>
 
-  <details>
-    <summary>
-      <span class="summary-icon"></span>
-      Dataclasses
-    </summary>
-    <div id="dataclasses"></div>
-  </details>
+    <section>
+      <details>
+        <summary>
+          <span class="summary-icon"></span>
+          Dataclasses
+        </summary>
+        <div id="dataclasses"></div>
+      </details>
+    </section>
 
-  <details>
-    <summary>
-      <span class="summary-icon"></span>
-      SSZ Objects
-    </summary>
-    <div id="ssz_objects"></div>
-  </details>
+    <section>
+      <details>
+        <summary>
+          <span class="summary-icon"></span>
+          SSZ Objects
+        </summary>
+        <div id="ssz_objects"></div>
+      </details>
+    </section>
 
-  <details>
-    <summary>
-      <span class="summary-icon"></span>
-      Functions
-    </summary>
-    <div id="functions"></div>
-  </details>
+    <section>
+      <details>
+        <summary>
+          <span class="summary-icon"></span>
+          Functions
+        </summary>
+        <div id="functions"></div>
+      </details>
+    </section>
 
-  <div id="noResults" class="no-results hidden">No results found for your search criteria.</div>
+    <div id="noResults" class="no-results hidden">No results found for your search criteria.</div>
+  </main>
 
   <script type="module" src="js/main.js"></script>
