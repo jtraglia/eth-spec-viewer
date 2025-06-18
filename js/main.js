@@ -19,10 +19,11 @@ import { initDarkMode } from './darkMode.js';
 import { addVariables } from './variables.js';
 import { addItems } from './items.js';
 import { applyFilters, clearFilters, debouncedApplyFilters } from './filters.js';
-import { CATEGORY_TYPES } from './constants.js';
+import { CATEGORY_TYPES, populateForkFilters } from './constants.js';
 import { logger, ErrorHandler } from './logger.js';
 import { getElement, getElements, addEventListenerSafe, scrollToElement, toggleVisibility } from './domUtils.js';
 import { initEnhancedSyntax } from './enhancedSyntax.js';
+
 
 /**
  * Copy text to clipboard with visual feedback
@@ -190,6 +191,9 @@ async function loadData() {
     
     const jsonData = await resp.json();
     logger.info('Successfully loaded JSON data', { size: JSON.stringify(jsonData).length });
+    
+    // Populate fork filter dropdowns
+    populateForkFilters(jsonData);
     
     appState.setJsonData(jsonData);
 

@@ -65,27 +65,36 @@ export function parseValue(fields) {
 }
 
 /**
- * Compare fork groups in ascending order
+ * Compare fork groups in ascending order (chronological)
  * @param {string} a - First fork name
  * @param {string} b - Second fork name
  * @returns {number} Comparison result
  */
 export function forkGroupCompareAscending(a, b) {
-  if (a === "PHASE0" && b !== "PHASE0") return -1;
-  if (b === "PHASE0" && a !== "PHASE0") return 1;
+  const aIndex = FORK_ORDER.indexOf(a.toUpperCase());
+  const bIndex = FORK_ORDER.indexOf(b.toUpperCase());
+  
+  // If both forks are in the known order, use that
+  if (aIndex !== -1 && bIndex !== -1) {
+    return aIndex - bIndex;
+  }
+  
+  // If only one is in the known order, prioritize it
+  if (aIndex !== -1) return -1;
+  if (bIndex !== -1) return 1;
+  
+  // If neither is in the known order, use alphabetical
   return a.localeCompare(b);
 }
 
 /**
- * Compare fork groups in descending order
+ * Compare fork groups in descending order (reverse chronological)
  * @param {string} a - First fork name
  * @param {string} b - Second fork name
  * @returns {number} Comparison result
  */
 export function forkGroupCompareDescending(a, b) {
-  if (a === "PHASE0" && b !== "PHASE0") return 1;
-  if (b === "PHASE0" && a !== "PHASE0") return -1;
-  return b.localeCompare(a);
+  return forkGroupCompareAscending(b, a);
 }
 
 /**
