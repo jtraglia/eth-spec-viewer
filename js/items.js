@@ -12,6 +12,7 @@ import {
   highlightDiff
 } from './utils.js';
 import { appState } from './state.js';
+import { FORK_ORDER } from './constants.js';
 
 /**
  * Build summary text for item display
@@ -87,27 +88,34 @@ export function renderItem(baseName, mForks, displayValueInSummary, category) {
   // Store fork details in a more accessible way for filtering
   let forkDetails = [];
 
-  // Initially, the first fork is open, others are closed
-  var openOrNot = "open";
-
-  // Add each fork's code block
-  for (const {fork, value} of [...mForks].reverse()) {
+  // Sort forks by chronological order, then reverse to show newest first
+  const forksSorted = [...mForks].sort((a, b) => {
+    const aIndex = FORK_ORDER.indexOf(a.fork);
+    const bIndex = FORK_ORDER.indexOf(b.fork);
+    return aIndex - bIndex; // Ascending chronological order
+  });
+  const forksReversed = forksSorted.reverse(); // Newest first
+  
+  forksReversed.forEach(({fork, value}, index) => {
     const section = document.createElement('div');
 
     // If showing diffs and this isn't the last fork value, compare with next value
     let displayValue = value;
     if (showDiff && mForks.length > 1) {
-      // Find the next newer fork if any
-      const forkIndex = mForks.findIndex(f => f.fork === fork);
-      if (forkIndex > 0) {
-        const olderFork = mForks[forkIndex - 1];
+      // Find the next newer fork if any (in original chronological order)
+      const originalIndex = mForks.findIndex(f => f.fork === fork);
+      if (originalIndex > 0) {
+        const olderFork = mForks[originalIndex - 1];
         displayValue = highlightDiff(olderFork.value, value);
       }
     }
 
+    // Open only the first item in the reversed array (which is the newest fork)
+    const isOpen = index === 0 ? "open" : "";
+
     // Explicitly create the fork details element to track it
     const forkDetailHTML = `
-      <details ${openOrNot} class="preset-group fork-code-block" data-fork="${fork}">
+      <details ${isOpen} class="preset-group fork-code-block" data-fork="${fork}">
         <summary>
           <span class="summary-icon"></span>
           <span class="badge" style="background-color: ${getForkColor(fork)}">${fork}</span>
@@ -121,12 +129,20 @@ export function renderItem(baseName, mForks, displayValueInSummary, category) {
 
     // Keep track of this fork detail for filtering
     forkDetails.push(fork);
-
-    // Only the first one is open by default
-    openOrNot = "";
-  }
+  });
 
   details.appendChild(content);
+
+  // Add event listener to auto-open the latest fork when the main item is opened
+  details.addEventListener('toggle', function() {
+    if (this.open) {
+      // When opened, automatically open the first (newest) fork code block
+      const firstForkBlock = this.querySelector('.fork-code-block');
+      if (firstForkBlock) {
+        firstForkBlock.setAttribute('open', 'true');
+      }
+    }
+  });
 
   // Add data attributes for filtering
   details.dataset.name = baseName.toLowerCase();
