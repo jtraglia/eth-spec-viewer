@@ -7,7 +7,6 @@
  */
 
 import { 
-  getForkColor, 
   getIncludedForks, 
   parseForkName, 
   parseValue, 
@@ -18,6 +17,7 @@ import {
   highlightDiff
 } from './utils.js';
 import { appState } from './state.js';
+import { createForkBadgesHTML, createDeprecatedBadgeHTML, createShareButtonHTML } from './uiUtils.js';
 
 /**
  * Get the value of a variable for a specific fork
@@ -136,12 +136,7 @@ function buildVariableSummary(name, mBase, mForks, displayTypeAndValue = true) {
 
   const sortedForks = Array.from(forkNames).sort(forkGroupCompareDescending);
 
-  const badges = sortedForks
-    .map((fork) => {
-      const color = getForkColor(fork);
-      return `<span class="badge" style="background-color: ${color}">${fork}</span>`;
-    })
-    .join(" ");
+  const badges = createForkBadgesHTML(sortedForks);
 
   let lastVal = mBase?.value || "N/A";
   let lastType = mBase?.type || "";
@@ -159,7 +154,7 @@ function buildVariableSummary(name, mBase, mForks, displayTypeAndValue = true) {
 
   // Add deprecated badge if needed
   const deprecatedBadge = appState.isItemDeprecated(name) ?
-    '<span class="deprecated-badge">DEPRECATED</span>' : '';
+    createDeprecatedBadgeHTML() : '';
 
   if (displayTypeAndValue) {
     const displayType = lastType && lastType !== "Unknown" ? `: ${lastType} = ` : ` = `;
@@ -199,9 +194,7 @@ export function renderVariable(baseName, mBase, mForks, nBase, nForks, category)
   summary.innerHTML = `
     <span class="summary-icon"></span>
     <span class="collapsed-header">${summaryText}</span>
-    <button class="share-button" data-link="${shareLink}" title="Copy link to this item">
-      <i class="fas fa-link"></i>
-    </button>
+    ${createShareButtonHTML(shareLink)}
   `;
   details.appendChild(summary);
 

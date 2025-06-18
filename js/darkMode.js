@@ -5,6 +5,8 @@
  * and system preference detection.
  */
 
+import { getElement, addEventListenerSafe } from './domUtils.js';
+
 /**
  * Initialize dark mode toggle and preference handling
  * 
@@ -18,11 +20,7 @@
  * @throws {Error} If the dark mode toggle element is not found
  */
 export function initDarkMode() {
-  const darkModeToggle = document.getElementById('darkModeToggle');
-  
-  if (!darkModeToggle) {
-    throw new Error('Dark mode toggle element not found');
-  }
+  const darkModeToggle = getElement('darkModeToggle', true);
 
   // Check for saved preference or system preference
   const savedTheme = localStorage.getItem('theme');
@@ -38,7 +36,7 @@ export function initDarkMode() {
   }
 
   // Toggle dark mode when user clicks the toggle
-  darkModeToggle.addEventListener('change', function() {
+  addEventListenerSafe(darkModeToggle, 'change', function() {
     const isDarkMode = this.checked;
     setDarkMode(isDarkMode);
     localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');

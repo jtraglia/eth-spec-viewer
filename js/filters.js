@@ -13,6 +13,7 @@ import { appState } from './state.js';
 import { CATEGORY_DISPLAY_NAMES } from './constants.js';
 import { debounce, batchDOMOperations } from './performance.js';
 import { logger, ErrorHandler } from './logger.js';
+import { getElement, getElements, toggleVisibility } from './domUtils.js';
 
 /**
  * Apply all active filters
@@ -21,33 +22,22 @@ export function applyFilters() {
   try {
     logger.debug('Applying filters');
     
-    const searchInput = document.getElementById('searchInput');
-    const forkFilter = document.getElementById('forkFilter');
-    const changeFilter = document.getElementById('changeFilter');
-    const typeFilter = document.getElementById('typeFilter');
+    const filterElements = getElements(['searchInput', 'forkFilter', 'changeFilter', 'typeFilter'], true);
     
-    if (!searchInput || !forkFilter || !changeFilter || !typeFilter) {
-      throw new Error('Filter elements not found');
-    }
-
     appState.updateActiveFilters({
-      search: searchInput.value.toLowerCase(),
-      fork: forkFilter.value,
-      change: changeFilter.value,
-      type: typeFilter.value
+      search: filterElements.searchInput.value.toLowerCase(),
+      fork: filterElements.forkFilter.value,
+      change: filterElements.changeFilter.value,
+      type: filterElements.typeFilter.value
     });
 
     updateActiveFiltersDisplay();
     filterItems();
 
     // Show/hide diff toggle based on whether we're filtering for a single type
-    const toggleDiffContainer = document.getElementById('toggleDiffContainer');
+    const toggleDiffContainer = getElement('toggleDiffContainer');
     if (toggleDiffContainer) {
-      if (typeFilter.value) {
-        toggleDiffContainer.classList.remove('hidden');
-      } else {
-        toggleDiffContainer.classList.add('hidden');
-      }
+      toggleVisibility(toggleDiffContainer, !!filterElements.typeFilter.value, 'class', 'hidden');
     }
     
     logger.debug('Filters applied successfully', appState.getActiveFilters());
@@ -60,17 +50,33 @@ export function applyFilters() {
  * Clear all filters
  */
 export function clearFilters() {
-  document.getElementById('searchInput').value = '';
-  document.getElementById('forkFilter').value = '';
-  document.getElementById('changeFilter').value = '';
-  document.getElementById('typeFilter').value = '';
-  document.getElementById('searchClear').classList.add('hidden');
+  try {
+    const filterElements = getElements(['searchInput', 'forkFilter', 'changeFilter', 'typeFilter'], true);
+    const searchClear = getElement('searchClear');
+    const toggleDiffContainer = getElement('toggleDiffContainer');
 
-  appState.clearFilters();
-  updateActiveFiltersDisplay();
-  filterItems();
+    // Clear all filter values
+    filterElements.searchInput.value = '';
+    filterElements.forkFilter.value = '';
+    filterElements.changeFilter.value = '';
+    filterElements.typeFilter.value = '';
 
-  document.getElementById('toggleDiffContainer').classList.add('hidden');
+    // Hide search clear button and diff toggle
+    if (searchClear) {
+      toggleVisibility(searchClear, false, 'class', 'hidden');
+    }
+    if (toggleDiffContainer) {
+      toggleVisibility(toggleDiffContainer, false, 'class', 'hidden');
+    }
+
+    appState.clearFilters();
+    updateActiveFiltersDisplay();
+    filterItems();
+    
+    logger.debug('All filters cleared');
+  } catch (error) {
+    ErrorHandler.handle(error, 'Clear filters');
+  }
 }
 
 /**

@@ -21,6 +21,28 @@ import { addItems } from './items.js';
 import { applyFilters, clearFilters, debouncedApplyFilters } from './filters.js';
 import { CATEGORY_TYPES } from './constants.js';
 import { logger, ErrorHandler } from './logger.js';
+import { getElement, getElements, addEventListenerSafe, scrollToElement, toggleVisibility } from './domUtils.js';
+
+/**
+ * Copy text to clipboard with visual feedback
+ * @param {string} text - Text to copy
+ * @param {HTMLElement} button - Button to show feedback on
+ */
+async function copyToClipboard(text, button) {
+  try {
+    await navigator.clipboard.writeText(text);
+    logger.debug('Link copied to clipboard:', text);
+    
+    // Show visual confirmation
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i>';
+    setTimeout(() => {
+      button.innerHTML = originalHTML;
+    }, 1000);
+  } catch (error) {
+    ErrorHandler.handle(error, 'Clipboard copy', true);
+  }
+}
 
 /**
  * Handle direct links to specific specification items
@@ -40,7 +62,7 @@ function handleDirectLinks() {
 
     // After the data is loaded and rendered
     setTimeout(() => {
-      const item = document.getElementById(itemId);
+      const item = getElement(itemId);
       if (item) {
         // Open all parent details elements
         let parent = item.parentElement;
@@ -56,7 +78,7 @@ function handleDirectLinks() {
 
         // Scroll to the item (with a slight delay to let rendering complete)
         setTimeout(() => {
-          item.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          scrollToElement(item);
         }, 100);
       }
     }, 500);
@@ -70,97 +92,65 @@ function initEventListeners() {
   try {
     logger.info('Initializing event listeners');
     
-    // Search input event
-    const searchInput = document.getElementById('searchInput');
-    const searchClear = document.getElementById('searchClear');
+    // Get required elements
+    const elements = getElements(['searchInput', 'searchClear'], true);
+    const { searchInput, searchClear } = elements;
 
-    if (!searchInput || !searchClear) {
-      throw new Error('Required search elements not found');
-    }
-
-    searchInput.addEventListener('input', function() {
+    // Search input event - use arrow function to avoid binding issues
+    searchInput.addEventListener('input', () => {
       try {
-        const hasText = this.value.length > 0;
-        searchClear.classList.toggle('hidden', !hasText);
+        const hasText = searchInput.value.length > 0;
+        toggleVisibility(searchClear, hasText, 'class', 'hidden');
+        logger.debug('Search input changed, calling debounced filters');
         debouncedApplyFilters();
       } catch (error) {
         ErrorHandler.handle(error, 'Search input handler');
       }
     });
 
-    searchClear.addEventListener('click', function() {
-      try {
-        searchInput.value = '';
-        this.classList.add('hidden');
-        applyFilters();
-      } catch (error) {
-        ErrorHandler.handle(error, 'Search clear handler');
-      }
+    // Search clear event
+    addEventListenerSafe(searchClear, 'click', function() {
+      searchInput.value = '';
+      toggleVisibility(this, false, 'class', 'hidden');
+      applyFilters();
     });
 
-    // Filter buttons
-    const applyButton = document.getElementById('applyFilters');
-    const clearButton = document.getElementById('clearFilters');
+    // Filter buttons (optional elements)
+    const filterElements = getElements(['applyFilters', 'clearFilters', 'showDiffToggle']);
     
-    if (applyButton) {
-      applyButton.addEventListener('click', () => {
-        try {
-          applyFilters();
-        } catch (error) {
-          ErrorHandler.handle(error, 'Apply filters');
-        }
+    if (filterElements.applyFilters) {
+      addEventListenerSafe(filterElements.applyFilters, 'click', () => {
+        applyFilters();
       });
     }
     
-    if (clearButton) {
-      clearButton.addEventListener('click', () => {
-        try {
-          clearFilters();
-        } catch (error) {
-          ErrorHandler.handle(error, 'Clear filters');
-        }
+    if (filterElements.clearFilters) {
+      addEventListenerSafe(filterElements.clearFilters, 'click', () => {
+        clearFilters();
       });
     }
 
     // Diff toggle
-    const diffToggle = document.getElementById('showDiffToggle');
-    if (diffToggle) {
-      diffToggle.addEventListener('change', function() {
-        try {
-          logger.debug('Diff toggle changed, reloading data');
-          loadData(); // Reload and re-render to apply diff highlighting
-        } catch (error) {
-          ErrorHandler.handle(error, 'Diff toggle handler');
-        }
+    if (filterElements.showDiffToggle) {
+      addEventListenerSafe(filterElements.showDiffToggle, 'change', function() {
+        logger.debug('Diff toggle changed, reloading data');
+        loadData(); // Reload and re-render to apply diff highlighting
       });
     }
 
     // Share button click event (delegation)
-    document.addEventListener('click', function(e) {
-      try {
-        if (e.target.closest('.share-button')) {
-          const shareButton = e.target.closest('.share-button');
-          const link = shareButton.dataset.link;
+    addEventListenerSafe(document, 'click', function(e) {
+      if (e.target.closest('.share-button')) {
+        const shareButton = e.target.closest('.share-button');
+        const link = shareButton.dataset.link;
 
-          if (!link) {
-            logger.warn('Share button clicked but no link found');
-            return;
-          }
-
-          // Copy link to clipboard
-          navigator.clipboard.writeText(link).then(() => {
-            logger.debug('Link copied to clipboard:', link);
-            // Show a brief visual confirmation
-            shareButton.innerHTML = '<i class="fas fa-check"></i>';
-            setTimeout(() => {
-              shareButton.innerHTML = '<i class="fas fa-link"></i>';
-            }, 1000);
-          }).catch(error => {
-            ErrorHandler.handle(error, 'Clipboard copy', true);
-          });
+        if (!link) {
+          logger.warn('Share button clicked but no link found');
+          return;
         }
-      } catch (error) {
-        ErrorHandler.handle(error, 'Share button handler');
+
+        // Copy link to clipboard
+        copyToClipboard(link, shareButton);
       }
     });
     
