@@ -195,11 +195,13 @@ summary::-webkit-details-marker {
   /* Hide default arrow in Chrome/Safari */
   display: none;
 }
+/* Arrow fix for all summary icons */
 .summary-icon::before {
-  content: "▶ ";
+  content: "▶ " !important;
 }
-details[open] .summary-icon::before {
-  content: "▼ ";
+
+details[open] > summary .summary-icon::before {
+  content: "▼ " !important;
 }
 .collapsed-header {
   display: inline-block;
