@@ -276,23 +276,13 @@ function performFiltering() {
         }
       } else {
         // Not filtering by fork - ensure all fork blocks are visible
-        // But don't auto-expand parent items
         const forkBlocks = section.querySelectorAll('.expanded-content details.fork-code-block');
         for (const block of forkBlocks) {
           block.classList.remove('hidden');
         }
 
-        // Make sure at least first fork block is open by default
-        // (but don't change parent item expansion state)
-        if (section.hasAttribute('open')) {
-          const firstBlock = forkBlocks[0];
-          if (firstBlock) {
-            firstBlock.setAttribute('open', 'true');
-            for (let i = 1; i < forkBlocks.length; i++) {
-              forkBlocks[i].removeAttribute('open');
-            }
-          }
-        }
+        // Note: We intentionally don't auto-open/close fork blocks here
+        // to preserve their state during navigation
       }
     }
   }
@@ -340,10 +330,8 @@ function performFiltering() {
       section.removeAttribute('open');
     });
 
-    // Optional: collapse fork-level blocks too
-    document.querySelectorAll('details.fork-code-block').forEach(section => {
-      section.removeAttribute('open');
-    });
+    // Note: We intentionally don't collapse fork blocks here
+    // to preserve their state when navigating back
 
     // Show all phase groups when no filters are active
     if (!activeFilters.fork && !activeFilters.change && !activeFilters.type && !activeFilters.deprecated) {
@@ -353,12 +341,9 @@ function performFiltering() {
     }
   }
 
-  // 7. Refresh syntax highlighting (defer to avoid blocking)
-  setTimeout(() => {
-    if (typeof Prism !== 'undefined') {
-      Prism.highlightAll();
-    }
-  }, 0);
+  // Note: We don't need to call Prism or forceReEnhance here
+  // The MutationObserver in enhancedSyntax.js will automatically handle
+  // any newly visible code blocks that need enhancement
 }
 
 /**

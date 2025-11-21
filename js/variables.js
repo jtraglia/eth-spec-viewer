@@ -186,7 +186,7 @@ export function renderVariable(baseName, mBase, mForks, nBase, nForks, category)
   }
 
   // Save reference to this item for direct linking
-  appState.registerItem(itemId, details);
+  appState.registerItem(itemId, details, baseName);
 
   const summary = document.createElement("summary");
   const shareLink = createShareLink(itemId);

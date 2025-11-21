@@ -663,6 +663,133 @@ pre[class*="language-python"] {
   color: #6e7681 !important;
 }
 
+/* Navigation history box */
+.navigation-box {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  background: rgba(33, 38, 45, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  transition: all 0.3s ease;
+}
+
+[data-theme="dark"] .navigation-box {
+  background: rgba(13, 17, 23, 0.9);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.navigation-box:hover {
+  background: rgba(33, 38, 45, 0.95);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .navigation-box:hover {
+  background: rgba(13, 17, 23, 0.95);
+}
+
+.nav-button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(79, 172, 254, 0.2);
+  color: #4facfe;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.nav-button:hover:not(:disabled) {
+  background: rgba(79, 172, 254, 0.3);
+  color: #81d4fa;
+  transform: scale(1.1);
+}
+
+.nav-button:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.nav-button:disabled {
+  background: rgba(100, 100, 100, 0.1);
+  color: rgba(150, 150, 150, 0.5);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.nav-button i {
+  pointer-events: none;
+}
+
+/* Responsive adjustments for navigation box */
+@media (max-width: 768px) {
+  .navigation-box {
+    bottom: 15px;
+    right: 15px;
+    padding: 10px;
+  }
+
+  .nav-button {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+}
+
+/* Clickable spec references */
+.spec-reference {
+  cursor: pointer !important;
+  text-decoration: underline !important;
+  text-decoration-color: #4fc3f7 !important;
+  text-decoration-style: dotted !important;
+  text-underline-offset: 2px !important;
+  text-decoration-thickness: 1.5px !important;
+  transition: all 0.2s ease !important;
+}
+
+.spec-reference:hover {
+  text-decoration-color: #81d4fa !important;
+  text-decoration-style: solid !important;
+  text-decoration-thickness: 2px !important;
+}
+
+[data-theme="dark"] .spec-reference {
+  text-decoration-color: #64b5f6 !important;
+}
+
+[data-theme="dark"] .spec-reference:hover {
+  text-decoration-color: #90caf9 !important;
+}
+
+/* Highlight animation when navigating to a reference */
+@keyframes reference-highlight {
+  0% {
+    box-shadow: 0 0 0 0 rgba(79, 195, 247, 0.7);
+    border-color: rgba(79, 195, 247, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 20px 10px rgba(79, 195, 247, 0.4);
+    border-color: rgba(79, 195, 247, 1);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 195, 247, 0);
+    border-color: var(--details-border);
+  }
+}
+
+.reference-highlight {
+  animation: reference-highlight 2s ease-out;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .header-container {
