@@ -11,52 +11,49 @@ import { FORK_ORDER } from './constants.js';
  * Enhance Python syntax highlighting in code blocks
  */
 export function enhancePythonSyntax() {
-  // Wait for Prism to finish
-  setTimeout(() => {
-    const pythonBlocks = document.querySelectorAll('code.language-python');
+  const pythonBlocks = document.querySelectorAll('code.language-python');
 
-    pythonBlocks.forEach(block => {
-      // Skip if already processed
-      if (block.dataset.enhanced) return;
+  pythonBlocks.forEach(block => {
+    // Skip if already processed
+    if (block.dataset.enhanced) return;
 
-      // Direct HTML processing approach
-      let html = block.innerHTML;
+    // Direct HTML processing approach
+    let html = block.innerHTML;
 
-      // Replace function calls that aren't already in spans
-      // Look for patterns like "word(" that aren't inside existing token spans
-      const lines = html.split('\n');
-      const processedLines = lines.map(line => {
-        // Skip lines that are already heavily tokenized
-        if (line.includes('<span class="token')) {
-          // For tokenized lines, we need to be more careful
-          // Split on existing spans and only process the plain text parts
-          const parts = line.split(/(<span[^>]*>.*?<\/span>)/);
-          return parts.map(part => {
-            if (part.includes('<span')) {
-              return part; // Don't modify existing spans
-            } else {
-              // Process plain text for function calls
-              return part.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, '<span class="token function-call">$1</span>');
-            }
-          }).join('');
-        } else {
-          // For lines with no tokens, process normally
-          return line.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, '<span class="token function-call">$1</span>');
-        }
-      });
-
-      const newHTML = processedLines.join('\n');
-
-      if (newHTML !== html) {
-        block.innerHTML = newHTML;
+    // Replace function calls that aren't already in spans
+    // Look for patterns like "word(" that aren't inside existing token spans
+    const lines = html.split('\n');
+    const processedLines = lines.map(line => {
+      // Skip lines that are already heavily tokenized
+      if (line.includes('<span class="token')) {
+        // For tokenized lines, we need to be more careful
+        // Split on existing spans and only process the plain text parts
+        const parts = line.split(/(<span[^>]*>.*?<\/span>)/);
+        return parts.map(part => {
+          if (part.includes('<span')) {
+            return part; // Don't modify existing spans
+          } else {
+            // Process plain text for function calls
+            return part.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, '<span class="token function-call">$1</span>');
+          }
+        }).join('');
+      } else {
+        // For lines with no tokens, process normally
+        return line.replace(/\b([a-zA-Z_]\w*)(?=\s*\()/g, '<span class="token function-call">$1</span>');
       }
-
-      // Add clickable references for known items
-      addClickableReferences(block);
-
-      block.dataset.enhanced = 'true';
     });
-  }, 150); // Increase timeout to ensure Prism is done
+
+    const newHTML = processedLines.join('\n');
+
+    if (newHTML !== html) {
+      block.innerHTML = newHTML;
+    }
+
+    // Add clickable references for known items
+    addClickableReferences(block);
+
+    block.dataset.enhanced = 'true';
+  });
 }
 
 /**
