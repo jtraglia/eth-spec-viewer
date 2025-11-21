@@ -19,7 +19,7 @@ import { initDarkMode } from './darkMode.js';
 import { addVariables } from './variables.js';
 import { addItems } from './items.js';
 import { applyFilters, clearFilters, debouncedApplyFilters } from './filters.js';
-import { CATEGORY_TYPES, populateForkFilters } from './constants.js';
+import { CATEGORY_TYPES, populateForkFilters, FORK_ORDER } from './constants.js';
 import { logger, ErrorHandler } from './logger.js';
 import { getElement, getElements, addEventListenerSafe, scrollToElement, toggleVisibility } from './domUtils.js';
 import { initEnhancedSyntax } from './enhancedSyntax.js';
@@ -117,9 +117,29 @@ function navigateToItem(itemId, addToHistory = true, preferredFork = null, manip
               break;
             }
           }
+
+          // If preferred fork not found, find the most recent fork <= preferred fork
+          if (!forkToOpen) {
+            const preferredIndex = FORK_ORDER.indexOf(preferredFork);
+            if (preferredIndex >= 0) {
+              // Get all available forks in this item
+              const availableForks = Array.from(forkBlocks).map(block => block.getAttribute('data-fork'));
+
+              // Starting from preferred fork, go backwards to find the latest one that exists
+              for (let i = preferredIndex; i >= 0; i--) {
+                const candidateFork = FORK_ORDER[i];
+                if (availableForks.includes(candidateFork)) {
+                  forkToOpen = Array.from(forkBlocks).find(block =>
+                    block.getAttribute('data-fork') === candidateFork
+                  );
+                  break;
+                }
+              }
+            }
+          }
         }
 
-        // If preferred fork not found, open the last one (latest fork)
+        // If still not found, open the last one (latest fork available)
         if (!forkToOpen) {
           forkToOpen = forkBlocks[forkBlocks.length - 1];
         }
