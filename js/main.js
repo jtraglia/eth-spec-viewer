@@ -47,6 +47,112 @@ async function copyToClipboard(text, button) {
 }
 
 /**
+ * Update navigation button states based on history
+ */
+function updateNavigationButtons() {
+  const navBox = document.getElementById('navigationBox');
+  const backButton = document.getElementById('navBack');
+  const forwardButton = document.getElementById('navForward');
+
+  if (!navBox || !backButton || !forwardButton) return;
+
+  // Show navigation box if there's any history
+  if (appState.navigationHistory.length > 0) {
+    navBox.classList.remove('hidden');
+  } else {
+    navBox.classList.add('hidden');
+  }
+
+  // Update button states
+  backButton.disabled = !appState.canGoBack();
+  forwardButton.disabled = !appState.canGoForward();
+}
+
+/**
+ * Navigate to a specific item by ID
+ * @param {string} itemId - ID of the item to navigate to
+ * @param {boolean} addToHistory - Whether to add this navigation to history
+ * @param {string} [preferredFork] - Optional fork name to open (e.g., 'ALTAIR')
+ * @param {boolean} [manipulateForks] - Whether to change which forks are open (default: true)
+ */
+function navigateToItem(itemId, addToHistory = true, preferredFork = null, manipulateForks = true) {
+  const targetElement = appState.getItemById(itemId);
+  if (!targetElement) {
+    logger.warn('Target element not found for item ID:', itemId);
+    return;
+  }
+
+  // Add to history if requested
+  if (addToHistory) {
+    appState.addToHistory(itemId);
+    updateNavigationButtons();
+  }
+
+  // Open all parent details elements
+  let parent = targetElement.parentElement;
+  while (parent) {
+    if (parent.tagName === 'DETAILS') {
+      parent.setAttribute('open', 'true');
+    }
+    parent = parent.parentElement;
+  }
+
+  // Open the target element itself
+  targetElement.setAttribute('open', 'true');
+
+  // Only manipulate fork blocks if requested (when clicking references, not when using nav buttons)
+  if (manipulateForks) {
+    // Use a delay to ensure rendering is complete, then close all and open the correct one
+    setTimeout(() => {
+      const forkBlocks = targetElement.querySelectorAll('.fork-code-block');
+
+      if (forkBlocks.length > 0) {
+        let forkToOpen = null;
+
+        // If a preferred fork is specified, try to find it
+        if (preferredFork) {
+          for (const block of forkBlocks) {
+            if (block.getAttribute('data-fork') === preferredFork) {
+              forkToOpen = block;
+              break;
+            }
+          }
+        }
+
+        // If preferred fork not found, open the last one (latest fork)
+        if (!forkToOpen) {
+          forkToOpen = forkBlocks[forkBlocks.length - 1];
+        }
+
+        // Close all fork blocks, then open the selected one (do both together)
+        forkBlocks.forEach(block => block.open = false);
+        forkToOpen.open = true;
+      }
+
+      // Scroll to the target element
+      scrollToElement(targetElement);
+
+      // Add a highlight animation
+      targetElement.classList.add('reference-highlight');
+      setTimeout(() => {
+        targetElement.classList.remove('reference-highlight');
+      }, 2000);
+    }, 50);
+  } else {
+    // Just scroll and highlight, don't manipulate forks
+    setTimeout(() => {
+      scrollToElement(targetElement);
+
+      // Add a highlight animation
+      targetElement.classList.add('reference-highlight');
+      setTimeout(() => {
+        targetElement.classList.remove('reference-highlight');
+      }, 2000);
+    }, 50);
+  }
+}
+
+/**
  * Handle direct links to specific specification items
  *
  * Processes URL hash fragments to automatically open and scroll to
@@ -154,7 +260,91 @@ function initEventListeners() {
         // Copy link to clipboard
         copyToClipboard(link, shareButton);
       }
+
+      // Handle spec reference clicks
+      if (e.target.classList.contains('spec-reference')) {
+        const itemId = e.target.dataset.itemId;
+        if (!itemId) {
+          logger.warn('Spec reference clicked but no item ID found');
+          return;
+        }
+
+        // Check if we have an active search filter
+        const searchInput = document.getElementById('searchInput');
+        const hasSearchFilter = searchInput && searchInput.value.trim().length > 0;
+
+        // Find the current item and current fork
+        let currentElement = e.target;
+        let currentItemId = null;
+        let currentFork = null;
+
+        while (currentElement && currentElement !== document.body) {
+          // Find the fork we're currently viewing
+          if (!currentFork && currentElement.classList && currentElement.classList.contains('fork-code-block')) {
+            currentFork = currentElement.getAttribute('data-fork');
+          }
+
+          // Find the current item
+          if (currentElement.id && appState.getItemById(currentElement.id)) {
+            currentItemId = currentElement.id;
+            break;
+          }
+          currentElement = currentElement.parentElement;
+        }
+
+
+        // Add current item to history first (if we found it and it's not already the current position)
+        if (currentItemId && appState.navigationHistory[appState.historyPosition] !== currentItemId) {
+          appState.addToHistory(currentItemId);
+          updateNavigationButtons();
+        }
+
+        // If there's a search filter, clear it first then navigate
+        if (hasSearchFilter) {
+          // Clear the search input
+          searchInput.value = '';
+          const searchClear = document.getElementById('searchClear');
+          if (searchClear) {
+            searchClear.classList.add('hidden');
+          }
+
+          // Apply filters with empty search (this will properly show all items)
+          applyFilters();
+
+          // Navigate after filters are applied, with preferred fork
+          setTimeout(() => {
+            navigateToItem(itemId, true, currentFork, true);
+          }, 100);
+        } else {
+          // No search filter, navigate immediately with preferred fork
+          navigateToItem(itemId, true, currentFork, true);
+        }
+      }
     });
+
+    // Navigation button event listeners
+    const navBackButton = document.getElementById('navBack');
+    const navForwardButton = document.getElementById('navForward');
+
+    if (navBackButton) {
+      addEventListenerSafe(navBackButton, 'click', function() {
+        const itemId = appState.goBack();
+        if (itemId) {
+          navigateToItem(itemId, false, null, false); // Don't add to history, don't manipulate forks
+          updateNavigationButtons();
+        }
+      });
+    }
+
+    if (navForwardButton) {
+      addEventListenerSafe(navForwardButton, 'click', function() {
+        const itemId = appState.goForward();
+        if (itemId) {
+          navigateToItem(itemId, false, null, false); // Don't add to history, don't manipulate forks
+          updateNavigationButtons();
+        }
+      });
+    }
 
     logger.info('Event listeners initialized successfully');
   } catch (error) {
