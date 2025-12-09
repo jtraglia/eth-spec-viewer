@@ -1,353 +1,323 @@
 /**
  * Main application entry point for the Ethereum Consensus Specifications viewer
- *
- * This module serves as the central coordinator for the entire application,
- * handling initialization, data loading, event setup, and application lifecycle.
- *
- * Key responsibilities:
- * - Initialize all application modules (dark mode, event listeners, etc.)
- * - Load and process the pyspec.json data file
- * - Set up error handling and fallback mechanisms
- * - Handle direct links to specific specification items
- * - Coordinate the rendering of variables and specification items
- *
- * @module main
  */
 
-import { appState } from './state.js';
 import { initDarkMode } from './darkMode.js';
-import { addVariables } from './variables.js';
-import { addItems } from './items.js';
-import { applyFilters, clearFilters, debouncedApplyFilters } from './filters.js';
-import { CATEGORY_TYPES, populateForkFilters } from './constants.js';
-import { logger, ErrorHandler } from './logger.js';
-import { getElement, getElements, addEventListenerSafe, scrollToElement, toggleVisibility } from './domUtils.js';
-import { initEnhancedSyntax } from './enhancedSyntax.js';
+import { initResizable } from './resizable.js';
+import { buildTree, filterTree, setOnItemSelectCallback } from './tree.js';
+import { displaySpec, clearSpec, openForkInViewer } from './specViewer.js';
+import { CATEGORY_TYPES, CATEGORY_ORDER, getForkDisplayName } from './constants.js';
+import { initReferenceClickHandler, addToHistory, goBack, goForward, navigateToReference } from './references.js';
 
+// Application state
+const state = {
+  data: null,
+  currentItem: null,
+  forks: [],
+  categories: [],
+  activeForkFilter: null,
+  activeTypeFilter: null,
+  searchTerm: ''
+};
 
 /**
- * Copy text to clipboard with visual feedback
- * @param {string} text - Text to copy
- * @param {HTMLElement} button - Button to show feedback on
+ * Extract forks from data
  */
-async function copyToClipboard(text, button) {
-  try {
-    await navigator.clipboard.writeText(text);
-    logger.debug('Link copied to clipboard:', text);
+function extractForks(data) {
+  const networkData = data.mainnet || data.minimal;
+  if (!networkData) return [];
 
-    // Show visual confirmation
-    const originalHTML = button.innerHTML;
-    button.innerHTML = '<i class="fas fa-check"></i>';
-    setTimeout(() => {
-      button.innerHTML = originalHTML;
-    }, 1000);
-  } catch (error) {
-    ErrorHandler.handle(error, 'Clipboard copy', true);
-  }
+  const knownOrder = ['PHASE0', 'ALTAIR', 'BELLATRIX', 'CAPELLA', 'DENEB', 'ELECTRA', 'FULU'];
+  const discoveredForks = Object.keys(networkData)
+    .filter(f => !f.toUpperCase().startsWith('EIP') && f.toUpperCase() !== 'WHISK')
+    .map(f => f.toUpperCase());
+
+  // Sort by known order, then alphabetically for unknown forks
+  const knownForks = knownOrder.filter(f => discoveredForks.includes(f));
+  const unknownForks = discoveredForks.filter(f => !knownOrder.includes(f)).sort();
+
+  return [...knownForks, ...unknownForks];
 }
 
 /**
- * Handle direct links to specific specification items
- *
- * Processes URL hash fragments to automatically open and scroll to
- * specific items when the page loads. Useful for sharing links to
- * specific functions, constants, or other specification elements.
- *
- * @example
- * // URL like https://example.com/#functions-some_function
- * // Will automatically open the Functions section and scroll to some_function
+ * Build fork filter buttons
  */
-function handleDirectLinks() {
-  // Check if URL has a hash
+function buildForkFilters() {
+  const container = document.getElementById('forkFilters');
+  container.innerHTML = '';
+
+  state.forks.forEach(fork => {
+    const btn = document.createElement('button');
+    btn.className = 'fork-filter-btn';
+    btn.textContent = getForkDisplayName(fork);
+    btn.dataset.fork = fork;
+
+    btn.addEventListener('click', () => {
+      // Toggle filter
+      if (state.activeForkFilter === fork) {
+        state.activeForkFilter = null;
+        btn.classList.remove('active');
+      } else {
+        // Remove active from all fork buttons
+        container.querySelectorAll('.fork-filter-btn').forEach(b => b.classList.remove('active'));
+        state.activeForkFilter = fork;
+        btn.classList.add('active');
+      }
+      applyFilters();
+    });
+
+    container.appendChild(btn);
+  });
+}
+
+/**
+ * Build type filter buttons
+ */
+function buildTypeFilters() {
+  const container = document.getElementById('typeFilters');
+  container.innerHTML = '';
+
+  CATEGORY_ORDER.forEach(key => {
+    const displayName = CATEGORY_TYPES[key];
+    const btn = document.createElement('button');
+    btn.className = 'type-filter-btn';
+    btn.textContent = displayName;
+    btn.dataset.type = key;
+
+    btn.addEventListener('click', () => {
+      // Toggle filter
+      if (state.activeTypeFilter === key) {
+        state.activeTypeFilter = null;
+        btn.classList.remove('active');
+      } else {
+        // Remove active from all type buttons
+        container.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
+        state.activeTypeFilter = key;
+        btn.classList.add('active');
+      }
+      applyFilters();
+    });
+
+    container.appendChild(btn);
+  });
+}
+
+/**
+ * Apply all filters to the tree
+ */
+function applyFilters() {
+  filterTree(state.activeForkFilter, state.activeTypeFilter, state.searchTerm);
+}
+
+/**
+ * Initialize search functionality
+ */
+function initSearch() {
+  const searchInput = document.getElementById('searchInput');
+  const searchClear = document.getElementById('searchClear');
+
+  let debounceTimer;
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+
+    const hasText = searchInput.value.length > 0;
+    searchClear.classList.toggle('hidden', !hasText);
+
+    debounceTimer = setTimeout(() => {
+      state.searchTerm = searchInput.value.toLowerCase();
+      applyFilters();
+    }, 300);
+  });
+
+  searchClear.addEventListener('click', () => {
+    searchInput.value = '';
+    searchClear.classList.add('hidden');
+    state.searchTerm = '';
+    applyFilters();
+  });
+}
+
+/**
+ * Handle item selection from tree
+ * @param {Object} item - The item to display
+ * @param {boolean} addHistory - Whether to add to navigation history
+ * @param {string} preferredFork - The fork to open (null for latest)
+ */
+function onItemSelect(item, addHistory = true, preferredFork = null) {
+  state.currentItem = item;
+
+  // Update active state in tree
+  document.querySelectorAll('.tree-label.active').forEach(el => el.classList.remove('active'));
+  if (item.element) {
+    item.element.classList.add('active');
+  }
+
+  // Add to navigation history (include fork if specified)
+  if (addHistory) {
+    addToHistory(item.name, preferredFork);
+  }
+
+  // Display the spec
+  displaySpec(item, state.data);
+
+  // Open the preferred fork if specified
+  if (preferredFork) {
+    openForkInViewer(preferredFork);
+  }
+
+  // Show spec viewer, hide welcome
+  document.getElementById('welcome').classList.add('hidden');
+  document.getElementById('specViewer').classList.remove('hidden');
+}
+
+// Expose for reference navigation
+window.selectItem = onItemSelect;
+
+/**
+ * Handle direct links (URL hash)
+ * Format: category-itemName or category-itemName-FORK
+ */
+function handleDirectLink() {
   if (window.location.hash) {
-    const itemId = window.location.hash.substring(1);
+    const hash = window.location.hash.substring(1);
+    const parts = hash.split('-');
 
-    // After the data is loaded and rendered
+    // Check if last part is a fork name
+    const knownForks = ['phase0', 'altair', 'bellatrix', 'capella', 'deneb', 'electra', 'fulu', 'gloas'];
+    let preferredFork = null;
+    let itemName = null;
+
+    const lastPart = parts[parts.length - 1].toLowerCase();
+    if (parts.length >= 3 && knownForks.includes(lastPart)) {
+      // Format: category-itemName-fork
+      preferredFork = lastPart.toUpperCase(); // Convert back to uppercase for internal use
+      itemName = parts.slice(1, -1).join('-');
+    } else if (parts.length >= 2) {
+      // Format: category-itemName
+      itemName = parts.slice(1).join('-');
+    } else {
+      itemName = hash;
+    }
+
+    // Try to find and select the item
     setTimeout(() => {
-      const item = getElement(itemId);
-      if (item) {
-        // Open all parent details elements
-        let parent = item.parentElement;
-        while (parent) {
-          if (parent.tagName === 'DETAILS') {
-            parent.setAttribute('open', 'true');
+      const treeNodes = document.querySelectorAll('.tree-node[data-name]');
+      for (const node of treeNodes) {
+        const name = node.dataset.name;
+        if (name === itemName || name === hash) {
+          // Found the item
+          const label = node.querySelector('.tree-label');
+          if (label) {
+            // Expand parent nodes
+            let parent = node.parentElement;
+            while (parent) {
+              if (parent.classList.contains('tree-children')) {
+                parent.classList.remove('collapsed');
+                const parentNode = parent.previousElementSibling;
+                if (parentNode) {
+                  const icon = parentNode.querySelector('.tree-icon');
+                  if (icon) icon.textContent = '▼';
+                }
+              }
+              parent = parent.parentElement;
+            }
+
+            // Get item data and select with preferred fork
+            const itemData = node._itemData;
+            if (itemData) {
+              onItemSelect({ ...itemData, element: label }, true, preferredFork);
+            } else {
+              label.click();
+            }
+
+            label.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            break;
           }
-          parent = parent.parentElement;
         }
-
-        // Open the item itself
-        item.setAttribute('open', 'true');
-
-        // Scroll to the item (with a slight delay to let rendering complete)
-        setTimeout(() => {
-          scrollToElement(item);
-        }, 100);
       }
     }, 500);
   }
 }
 
 /**
- * Initialize event listeners
- */
-function initEventListeners() {
-  try {
-    logger.info('Initializing event listeners');
-
-    // Get required elements
-    const elements = getElements(['searchInput', 'searchClear'], true);
-    const { searchInput, searchClear } = elements;
-
-    // Search input event - use arrow function to avoid binding issues
-    searchInput.addEventListener('input', () => {
-      try {
-        const hasText = searchInput.value.length > 0;
-        toggleVisibility(searchClear, hasText, 'class', 'hidden');
-        logger.debug('Search input changed, calling debounced filters');
-        debouncedApplyFilters();
-      } catch (error) {
-        ErrorHandler.handle(error, 'Search input handler');
-      }
-    });
-
-    // Search clear event
-    addEventListenerSafe(searchClear, 'click', function() {
-      searchInput.value = '';
-      toggleVisibility(this, false, 'class', 'hidden');
-      applyFilters();
-    });
-
-    // Filter buttons (optional elements)
-    const filterElements = getElements(['applyFilters', 'clearFilters', 'showDiffToggle']);
-
-    if (filterElements.applyFilters) {
-      addEventListenerSafe(filterElements.applyFilters, 'click', () => {
-        applyFilters();
-      });
-    }
-
-    if (filterElements.clearFilters) {
-      addEventListenerSafe(filterElements.clearFilters, 'click', () => {
-        clearFilters();
-      });
-    }
-
-    // Diff toggle
-    if (filterElements.showDiffToggle) {
-      addEventListenerSafe(filterElements.showDiffToggle, 'change', function() {
-        logger.debug('Diff toggle changed, reloading data');
-        loadData(); // Reload and re-render to apply diff highlighting
-      });
-    }
-
-    // Share button click event (delegation)
-    addEventListenerSafe(document, 'click', function(e) {
-      if (e.target.closest('.share-button')) {
-        const shareButton = e.target.closest('.share-button');
-        const link = shareButton.dataset.link;
-
-        if (!link) {
-          logger.warn('Share button clicked but no link found');
-          return;
-        }
-
-        // Copy link to clipboard
-        copyToClipboard(link, shareButton);
-      }
-    });
-
-    logger.info('Event listeners initialized successfully');
-  } catch (error) {
-    ErrorHandler.handle(error, 'Event listener initialization', true);
-  }
-}
-
-/**
- * Initialize deprecated items list
- *
- * Marks specific specification items as deprecated. These items will be
- * visually distinguished in the UI and can be filtered separately.
- *
- * @example
- * // To mark an item as deprecated:
- * // appState.addDeprecatedItem('OLD_CONSTANT_NAME');
- */
-function initDeprecatedItems() {
-  // Add any deprecated items here
-  // Example: appState.addDeprecatedItem('SOME_DEPRECATED_ITEM');
-}
-
-/**
- * Load data and render everything
+ * Load data and initialize the application
  */
 async function loadData() {
-  return ErrorHandler.handleAsync(async () => {
-    logger.info('Starting data load');
+  const loading = document.getElementById('loading');
+  const error = document.getElementById('error');
 
-    const resp = await fetch("pyspec.json");
-    if (!resp.ok) {
-      throw new Error(`Failed to fetch pyspec.json: HTTP ${resp.status} ${resp.statusText}`);
+  loading.classList.remove('hidden');
+
+  try {
+    const response = await fetch('pyspec.json');
+    if (!response.ok) {
+      throw new Error(`Failed to load data: ${response.status} ${response.statusText}`);
     }
 
-    const jsonData = await resp.json();
-    logger.info('Successfully loaded JSON data', { size: JSON.stringify(jsonData).length });
+    state.data = await response.json();
+    state.forks = extractForks(state.data);
 
-    // Populate fork filter dropdowns
-    populateForkFilters(jsonData);
+    // Build UI
+    buildForkFilters();
+    buildTypeFilters();
 
-    appState.setJsonData(jsonData);
+    // Set up tree callback
+    setOnItemSelectCallback(onItemSelect);
 
-    // Render different categories
-    logger.debug('Rendering variables and items');
-    addVariables(jsonData, CATEGORY_TYPES.CONSTANTS);
-    addVariables(jsonData, CATEGORY_TYPES.PRESETS);
-    addVariables(jsonData, CATEGORY_TYPES.CONFIG);
-    addItems(jsonData, CATEGORY_TYPES.CUSTOM_TYPES, true);
-    addItems(jsonData, CATEGORY_TYPES.DATACLASSES);
-    addItems(jsonData, CATEGORY_TYPES.SSZ_OBJECTS);
-    addItems(jsonData, CATEGORY_TYPES.FUNCTIONS);
-
-    // Apply any active filters
-    logger.debug('Applying initial filters');
-    applyFilters();
+    // Build the navigation tree
+    buildTree(state.data, state.forks);
 
     // Handle direct links
-    handleDirectLinks();
+    handleDirectLink();
 
-    // Syntax highlighting
-    if (typeof Prism !== 'undefined') {
-      Prism.highlightAll();
-      // Apply enhanced syntax highlighting after Prism
-      setTimeout(() => {
-        initEnhancedSyntax();
-      }, 200);
-    }
+    loading.classList.add('hidden');
 
-    logger.info('Data load completed successfully');
-  }, 'Data loading', 3).catch(error => {
-    logger.error('Failed to load data after all retries:', error);
-
-    // Display user-friendly error message
-    const noResults = document.getElementById('noResults');
-    if (noResults) {
-      noResults.innerHTML = `
-        <p><strong>Error loading specification data:</strong> ${error.message}</p>
-        <p>Please check that pyspec.json is available and try refreshing the page.</p>
-        <button onclick="window.location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">
-          Retry
-        </button>
-      `;
-      noResults.classList.remove('hidden');
-    }
-
-    throw error; // Re-throw for any calling code
-  });
+  } catch (err) {
+    console.error('Error loading data:', err);
+    loading.classList.add('hidden');
+    error.textContent = `Error loading specification data: ${err.message}`;
+    error.classList.remove('hidden');
+  }
 }
 
 /**
- * Load fallback example data if main JSON loading fails
- *
- * Provides a basic set of example data to demonstrate the application
- * functionality when the main pyspec.json file cannot be loaded.
- * Displays a notice to inform users they're viewing example data.
- *
- * @param {number} [delay=3000] - Delay in milliseconds before showing fallback
+ * Initialize navigation buttons
  */
-function loadFallbackData(delay = 3000) {
-  console.log("Loading fallback data");
+function initNavigation() {
+  const backButton = document.getElementById('navBack');
+  const forwardButton = document.getElementById('navForward');
 
-  // Example data structure that matches expected format
-  const fallbackData = {
-    mainnet: {
-      PHASE0: {
-        constant_vars: {
-          "EXAMPLE_CONSTANT": ["uint64", "1234"],
-          "ANOTHER_CONSTANT": ["string", "example value"]
-        },
-        preset_vars: {
-          "EXAMPLE_PRESET": ["uint64", "5678"]
-        },
-        config_vars: {
-          "EXAMPLE_CONFIG": ["string", "test"]
-        },
-        custom_types: {
-          "ExampleType": "type ExampleType = uint64"
-        },
-        dataclasses: {
-          "ExampleClass": "class ExampleClass(Container):\n    field1: uint64\n    field2: boolean"
-        },
-        ssz_objects: {
-          "ExampleSSZ": "class ExampleSSZ(Container):\n    field1: uint64\n    field2: Bytes32"
-        },
-        functions: {
-          "example_function": "def example_function(x: uint64) -> uint64:\n    return x * 2"
-        }
+  if (backButton) {
+    backButton.addEventListener('click', () => {
+      const entry = goBack();
+      if (entry) {
+        navigateToReference(entry.name, false, entry.fork);
       }
-    },
-    minimal: {
-      PHASE0: {
-        constant_vars: {
-          "EXAMPLE_CONSTANT": ["uint64", "1234"],
-        },
-        preset_vars: {
-          "EXAMPLE_PRESET": ["uint64", "1234"]
-        }
+    });
+  }
+
+  if (forwardButton) {
+    forwardButton.addEventListener('click', () => {
+      const entry = goForward();
+      if (entry) {
+        navigateToReference(entry.name, false, entry.fork);
       }
-    }
-  };
-
-  // If fetch fails to load data after specified delay, use fallback data
-  setTimeout(() => {
-    if (Object.keys(appState.getJsonData()).length === 0) {
-      console.log("Using fallback data");
-      appState.setJsonData(fallbackData);
-
-      addVariables(fallbackData, CATEGORY_TYPES.CONSTANTS);
-      addVariables(fallbackData, CATEGORY_TYPES.PRESETS);
-      addVariables(fallbackData, CATEGORY_TYPES.CONFIG);
-      addItems(fallbackData, CATEGORY_TYPES.CUSTOM_TYPES, true);
-      addItems(fallbackData, CATEGORY_TYPES.DATACLASSES);
-      addItems(fallbackData, CATEGORY_TYPES.SSZ_OBJECTS);
-      addItems(fallbackData, CATEGORY_TYPES.FUNCTIONS);
-
-      // Apply any active filters
-      applyFilters();
-
-      // Add notice about fallback data
-      const notice = document.createElement('div');
-      notice.style.background = '#ffe6cc';
-      notice.style.color = '#663c00';
-      notice.style.padding = '10px';
-      notice.style.marginBottom = '20px';
-      notice.style.borderRadius = '4px';
-      notice.innerHTML = '<strong>Note:</strong> Displaying example data. Could not load pyspec.json.';
-      document.body.insertBefore(notice, document.body.firstChild);
-
-      Prism.highlightAll();
-    }
-  }, delay);
+    });
+  }
 }
 
-// Initialize application
-(async function initializeApp() {
-  try {
-    logger.info('Starting application initialization');
+/**
+ * Initialize the application
+ */
+function init() {
+  initDarkMode();
+  initResizable();
+  initSearch();
+  initNavigation();
+  initReferenceClickHandler();
+  loadData();
+}
 
-    // Initialize core functionality
-    initDarkMode();
-    initEventListeners();
-    initDeprecatedItems();
-
-    // Load data with fallback
-    try {
-      await loadData();
-      logger.info('Application initialized successfully');
-    } catch (error) {
-      logger.warn('Main data loading failed, trying fallback data');
-      loadFallbackData();
-    }
-
-  } catch (error) {
-    ErrorHandler.handle(error, 'Application initialization', true);
-  }
-})();
+// Start the application
+init();
