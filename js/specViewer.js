@@ -3,10 +3,45 @@
  */
 
 import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName } from './constants.js';
-import { addClickableReferences } from './references.js';
+import { addClickableReferences, getUsedBy, navigateToReference } from './references.js';
 
 // Current item being displayed
 let currentItem = null;
+
+/**
+ * Create a "Used by" section showing items that reference this item
+ * @param {string} itemName - The name of the current item
+ * @returns {HTMLElement|null} - The used by section element, or null if no usages
+ */
+function createUsedBySection(itemName) {
+  const usedBy = getUsedBy(itemName);
+  if (usedBy.length === 0) return null;
+
+  const section = document.createElement('div');
+  section.className = 'used-by-section';
+
+  const header = document.createElement('div');
+  header.className = 'used-by-header';
+  header.innerHTML = `<span class="used-by-title">Consumers</span>`;
+  section.appendChild(header);
+
+  const list = document.createElement('div');
+  list.className = 'used-by-list';
+
+  usedBy.forEach(refName => {
+    const item = document.createElement('button');
+    item.className = 'used-by-item';
+    item.innerHTML = `<code>${escapeHtml(refName)}</code>`;
+    item.title = `Jump to ${refName}`;
+    item.addEventListener('click', () => {
+      navigateToReference(refName, true);
+    });
+    list.appendChild(item);
+  });
+
+  section.appendChild(list);
+  return section;
+}
 
 /**
  * Display a specification item
@@ -42,6 +77,12 @@ export function displaySpec(item, data) {
     displayVariable(item, content);
   } else {
     displayCode(item, content);
+  }
+
+  // Add "Used by" section
+  const usedBySection = createUsedBySection(item.name);
+  if (usedBySection) {
+    content.appendChild(usedBySection);
   }
 }
 

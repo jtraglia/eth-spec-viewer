@@ -3,7 +3,7 @@
  */
 
 import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName, CATEGORY_ORDER } from './constants.js';
-import { registerItem, clearRegistry } from './references.js';
+import { registerItem, clearRegistry, buildUsedByIndex } from './references.js';
 
 // Callback for when an item is selected
 let onItemSelectCallback = null;
@@ -311,6 +311,9 @@ export function buildTree(data, forks) {
     categoryNode.dataset.category = category;
     container.appendChild(categoryNode);
   });
+
+  // Build the reverse reference index after all items are registered
+  buildUsedByIndex(items);
 }
 
 /**

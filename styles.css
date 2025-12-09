@@ -762,6 +762,55 @@ pre.test-code-box {
   text-decoration-color: #90caf9 !important;
 }
 
+/* Used by section */
+.used-by-section {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background-color: var(--sidebar-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.used-by-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.used-by-title {
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.used-by-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.used-by-item {
+  background-color: var(--bg-color);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.used-by-item:hover {
+  border-color: var(--link-color);
+  background-color: var(--hover-bg);
+}
+
+.used-by-item code {
+  font-family: "Monaco", "Courier New", monospace;
+  font-size: 0.8rem;
+  color: var(--text-color);
+  background: none;
+  padding: 0;
+}
+
 /* Prism syntax highlighting - Light theme */
 code[class*="language-"],
 pre[class*="language-"] {

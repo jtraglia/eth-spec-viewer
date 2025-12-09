@@ -5,6 +5,9 @@
 // Registry of all known item names mapped to their tree node elements
 const itemRegistry = new Map();
 
+// Reverse reference index: maps item name -> Set of item names that use it
+const usedByIndex = new Map();
+
 // Navigation history - stores { name, fork } objects
 const navigationHistory = [];
 let historyPosition = -1;
@@ -38,6 +41,112 @@ export function getItemElement(name) {
  */
 export function clearRegistry() {
   itemRegistry.clear();
+  usedByIndex.clear();
+}
+
+/**
+ * Build the reverse reference index from all items
+ * Call this after all items have been registered
+ * @param {Object} items - The items object from collectItems (category -> name -> item)
+ */
+export function buildUsedByIndex(items) {
+  usedByIndex.clear();
+
+  // First pass: ensure all item names have an entry in usedByIndex
+  Object.values(items).forEach(categoryItems => {
+    Object.values(categoryItems).forEach(item => {
+      if (!usedByIndex.has(item.name)) {
+        usedByIndex.set(item.name, new Set());
+      }
+    });
+  });
+
+  // Second pass: scan all code/values to find references
+  const identifierRegex = /\b([A-Za-z_][A-Za-z0-9_]*)\b/g;
+
+  Object.values(items).forEach(categoryItems => {
+    Object.values(categoryItems).forEach(item => {
+      const sourceName = item.name;
+
+      // Get all the code/value content from this item
+      Object.values(item.values).forEach(value => {
+        let textContent = '';
+
+        if (typeof value === 'string') {
+          textContent = value;
+        } else if (value && typeof value === 'object') {
+          // Handle variable format { mainnet, minimal }
+          if (value.mainnet) {
+            if (Array.isArray(value.mainnet)) {
+              textContent += ' ' + value.mainnet.join(' ');
+            } else {
+              textContent += ' ' + String(value.mainnet);
+            }
+          }
+          if (value.minimal) {
+            if (Array.isArray(value.minimal)) {
+              textContent += ' ' + value.minimal.join(' ');
+            } else {
+              textContent += ' ' + String(value.minimal);
+            }
+          }
+        }
+
+        // Find all identifiers in this content
+        let match;
+        while ((match = identifierRegex.exec(textContent)) !== null) {
+          const identifier = match[1];
+
+          // Skip self-references
+          if (identifier === sourceName) continue;
+
+          // Check if this identifier is a known item
+          let targetName = null;
+          if (itemRegistry.has(identifier)) {
+            targetName = identifier;
+          } else {
+            // Try stripping fork suffix
+            const { base, fork } = parseForkNameInternal(identifier);
+            if (fork && base !== identifier && itemRegistry.has(base)) {
+              targetName = base;
+            }
+          }
+
+          if (targetName && usedByIndex.has(targetName)) {
+            usedByIndex.get(targetName).add(sourceName);
+          }
+        }
+      });
+    });
+  });
+}
+
+/**
+ * Internal version of parseForkName for use before export
+ */
+function parseForkNameInternal(varName) {
+  const varNameUpper = varName.toUpperCase();
+  for (const fork of FORK_SUFFIXES) {
+    const suffix = '_' + fork;
+    if (varNameUpper.endsWith(suffix)) {
+      return {
+        base: varName.slice(0, varName.length - suffix.length),
+        fork: fork
+      };
+    }
+  }
+  return { base: varName, fork: null };
+}
+
+/**
+ * Get the list of items that use a given item
+ * @param {string} itemName - The item name to look up
+ * @returns {string[]} - Array of item names that use this item
+ */
+export function getUsedBy(itemName) {
+  const usedBy = usedByIndex.get(itemName);
+  if (!usedBy) return [];
+  return Array.from(usedBy).sort();
 }
 
 /**
