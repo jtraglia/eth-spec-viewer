@@ -2,30 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ethereum Consensus Specifications</title>
   <link rel="stylesheet" href="styles.css">
 
-  <!-- Inline script to prevent flash of light mode -->
-  <script>
-    (function() {
-      const savedTheme = localStorage.getItem('theme');
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
-        document.documentElement.setAttribute('data-theme', 'dark');
-      }
-    })();
-  </script>
-
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css">
+  <!-- Prism for syntax highlighting -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
-
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/toolbar/prism-toolbar.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/copy-to-clipboard/prism-copy-to-clipboard.min.js"></script>
-
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
 
   <!-- Font Awesome for icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -34,138 +17,69 @@
   <header class="header-container">
     <h1>Ethereum Consensus Specifications</h1>
 
-    <div class="toggle-container" role="group" aria-label="Theme toggle">
-      <i class="fas fa-sun" aria-hidden="true"></i>
-      <label class="toggle-switch" for="darkModeToggle">
-        <input type="checkbox" id="darkModeToggle" aria-label="Toggle dark mode">
-        <span class="toggle-slider" aria-hidden="true"></span>
-      </label>
-      <i class="fas fa-moon" aria-hidden="true"></i>
+    <div class="header-right">
+      <div id="navigationBox" class="navigation-box">
+        <button id="navBack" class="nav-button" title="Go back" disabled>
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <button id="navForward" class="nav-button" title="Go forward" disabled>
+          <i class="fas fa-arrow-right"></i>
+        </button>
+      </div>
+
+      <div class="toggle-container" role="group" aria-label="Theme toggle">
+        <i class="fas fa-sun" aria-hidden="true"></i>
+        <label class="toggle-switch" for="darkModeToggle">
+          <input type="checkbox" id="darkModeToggle" aria-label="Toggle dark mode">
+          <span class="toggle-slider" aria-hidden="true"></span>
+        </label>
+        <i class="fas fa-moon" aria-hidden="true"></i>
+      </div>
     </div>
   </header>
 
-  <nav class="controls-container" role="navigation" aria-label="Search and filter controls">
-    <div class="search-container">
-      <input type="text" id="searchInput" placeholder="Search specifications..." aria-label="Search specifications">
-      <button id="searchClear" class="hidden" aria-label="Clear search">&times;</button>
-    </div>
+  <div class="main-container">
+    <!-- Sidebar navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search specifications..." aria-label="Search specifications">
+        <button id="searchClear" class="hidden" aria-label="Clear search">&times;</button>
+      </div>
 
-    <div class="filter-container">
-      <select id="forkFilter" class="filter-select" aria-label="Filter by fork">
-        <option value="">Filter by fork...</option>
-      </select>
+      <div class="fork-filters" id="forkFilters"></div>
 
-      <select id="changeFilter" class="filter-select" aria-label="Filter by changes">
-        <option value="">Filter by changes...</option>
-      </select>
+      <div class="type-filters" id="typeFilters"></div>
 
-      <select id="typeFilter" class="filter-select" aria-label="Filter by type">
-        <option value="">Filter by type...</option>
-        <option value="constant_vars">Constants</option>
-        <option value="preset_vars">Preset Variables</option>
-        <option value="config_vars">Configuration Variables</option>
-        <option value="custom_types">Custom Types</option>
-        <option value="dataclasses">Dataclasses</option>
-        <option value="ssz_objects">SSZ Objects</option>
-        <option value="functions">Functions</option>
-      </select>
+      <div class="tree-container" id="tree"></div>
+    </aside>
 
-      <button id="applyFilters" class="filter-button">Apply Filters</button>
-      <button id="clearFilters" class="filter-button">Clear Filters</button>
-    </div>
-  </nav>
+    <!-- Resize handle -->
+    <div class="resize-handle" id="resizeHandle"></div>
 
-  <div id="activeFilters" class="filter-container"></div>
+    <!-- Main content area -->
+    <main class="content">
+      <div id="welcome" class="welcome-screen">
+        <h2>Welcome</h2>
+        <p>Select a specification item from the navigation tree to view its details.</p>
+      </div>
 
-  <div id="toggleDiffContainer" class="toggle-container hidden">
-    <label>
-      Show diff between upgrades
-      <input type="checkbox" id="showDiffToggle" class="show-diff-checkbox" aria-label="Show diff between upgrades">
-    </label>
-  </div>
+      <div id="specViewer" class="spec-viewer hidden">
+        <div class="spec-header">
+          <h2 id="specTitle"></h2>
+        </div>
+        <div class="breadcrumb" id="breadcrumb"></div>
+        <div id="specContent" class="spec-content"></div>
+      </div>
 
-  <main role="main" aria-label="Ethereum Consensus Specifications">
-    <section>
-      <details>
-        <summary>
-          <span class="summary-icon"></span>
-          Constants
-        </summary>
-        <div id="constant_vars"></div>
-      </details>
-    </section>
+      <div id="loading" class="loading hidden">
+        <i class="fas fa-spinner fa-spin"></i>
+        <span>Loading specification data...</span>
+      </div>
 
-    <section>
-      <details>
-        <summary>
-          <span class="summary-icon"></span>
-          Preset Variables
-        </summary>
-        <div id="preset_vars"></div>
-      </details>
-    </section>
-
-    <section>
-      <details>
-        <summary>
-          <span class="summary-icon"></span>
-          Configuration Variables
-        </summary>
-        <div id="config_vars"></div>
-      </details>
-    </section>
-
-    <section>
-      <details>
-        <summary>
-          <span class="summary-icon"></span>
-          Custom Types
-        </summary>
-        <div id="custom_types"></div>
-      </details>
-    </section>
-
-    <section>
-      <details>
-        <summary>
-          <span class="summary-icon"></span>
-          Dataclasses
-        </summary>
-        <div id="dataclasses"></div>
-      </details>
-    </section>
-
-    <section>
-      <details>
-        <summary>
-          <span class="summary-icon"></span>
-          SSZ Objects
-        </summary>
-        <div id="ssz_objects"></div>
-      </details>
-    </section>
-
-    <section>
-      <details>
-        <summary>
-          <span class="summary-icon"></span>
-          Functions
-        </summary>
-        <div id="functions"></div>
-      </details>
-    </section>
-
-    <div id="noResults" class="no-results hidden">No results found for your search criteria.</div>
-  </main>
-
-  <!-- Navigation history controls -->
-  <div id="navigationBox" class="navigation-box hidden">
-    <button id="navBack" class="nav-button" title="Go back" disabled>
-      <i class="fas fa-arrow-left"></i>
-    </button>
-    <button id="navForward" class="nav-button" title="Go forward" disabled>
-      <i class="fas fa-arrow-right"></i>
-    </button>
+      <div id="error" class="error-message hidden"></div>
+    </main>
   </div>
 
   <script type="module" src="js/main.js"></script>
+</body>
+</html>
