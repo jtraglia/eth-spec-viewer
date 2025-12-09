@@ -67,10 +67,38 @@ body {
   flex-shrink: 0;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .header-right {
   display: flex;
   align-items: center;
   gap: 1.5rem;
+}
+
+/* Version dropdown */
+.version-select {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.version-select:hover {
+  border-color: var(--link-color);
+}
+
+.version-select:focus {
+  outline: none;
+  border-color: var(--link-color);
+  box-shadow: 0 0 0 2px rgba(79, 172, 254, 0.2);
 }
 
 /* Navigation history box in header */

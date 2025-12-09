@@ -17,7 +17,9 @@ const state = {
   categories: [],
   activeForkFilter: null,
   activeTypeFilter: null,
-  searchTerm: ''
+  searchTerm: '',
+  currentVersion: 'nightly',
+  availableVersions: ['nightly']
 };
 
 /**
@@ -241,16 +243,98 @@ function handleDirectLink() {
 }
 
 /**
- * Load data and initialize the application
+ * Discover available versions from versions.json
  */
-async function loadData() {
+async function discoverVersions() {
+  try {
+    const response = await fetch('pyspec/versions.json');
+    if (response.ok) {
+      const versions = await response.json();
+      state.availableVersions = versions;
+    }
+  } catch (err) {
+    // If versions.json doesn't exist, fall back to nightly only
+    console.log('versions.json not found, using nightly only');
+    state.availableVersions = ['nightly'];
+  }
+}
+
+/**
+ * Populate the version dropdown
+ */
+function populateVersionDropdown() {
+  const select = document.getElementById('versionSelect');
+  select.innerHTML = '';
+
+  // Sort versions: nightly first, then tagged versions in reverse order (newest first)
+  const sortedVersions = [...state.availableVersions].sort((a, b) => {
+    if (a === 'nightly') return -1;
+    if (b === 'nightly') return 1;
+    // Reverse sort for semver (newest first)
+    return b.localeCompare(a, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  sortedVersions.forEach(version => {
+    const option = document.createElement('option');
+    option.value = version;
+    option.textContent = version;
+    if (version === state.currentVersion) {
+      option.selected = true;
+    }
+    select.appendChild(option);
+  });
+}
+
+/**
+ * Handle version change
+ */
+async function onVersionChange(version) {
+  if (version === state.currentVersion) return;
+
+  // Save current item name to re-select after loading
+  const currentItemName = state.currentItem?.name;
+  const currentItemCategory = state.currentItem?.category;
+
+  state.currentVersion = version;
+
+  // Reload data for the new version (preserves search term and filters)
+  await loadVersionData(version);
+
+  // Try to re-select the same item in the new version
+  if (currentItemName) {
+    // Find the item in the new data
+    const treeNodes = document.querySelectorAll('.tree-node[data-name]');
+    for (const node of treeNodes) {
+      if (node.dataset.name === currentItemName) {
+        const itemData = node._itemData;
+        if (itemData) {
+          const label = node.querySelector('.tree-label');
+          onItemSelect({ ...itemData, element: label }, false);
+          label.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        break;
+      }
+    }
+  }
+}
+
+/**
+ * Load data for a specific version
+ */
+async function loadVersionData(version) {
   const loading = document.getElementById('loading');
   const error = document.getElementById('error');
 
   loading.classList.remove('hidden');
+  error.classList.add('hidden');
+
+  // Save current filter states
+  const savedForkFilter = state.activeForkFilter;
+  const savedTypeFilter = state.activeTypeFilter;
+  const savedSearchTerm = state.searchTerm;
 
   try {
-    const response = await fetch('pyspec.json');
+    const response = await fetch(`pyspec/${version}/pyspec.json`);
     if (!response.ok) {
       throw new Error(`Failed to load data: ${response.status} ${response.statusText}`);
     }
@@ -258,9 +342,24 @@ async function loadData() {
     state.data = await response.json();
     state.forks = extractForks(state.data);
 
-    // Build UI
+    // Build UI (this resets button states)
     buildForkFilters();
     buildTypeFilters();
+
+    // Restore filter states
+    state.activeForkFilter = savedForkFilter;
+    state.activeTypeFilter = savedTypeFilter;
+    state.searchTerm = savedSearchTerm;
+
+    // Re-apply active states to buttons
+    if (savedForkFilter) {
+      const forkBtn = document.querySelector(`.fork-filter-btn[data-fork="${savedForkFilter}"]`);
+      if (forkBtn) forkBtn.classList.add('active');
+    }
+    if (savedTypeFilter) {
+      const typeBtn = document.querySelector(`.type-filter-btn[data-type="${savedTypeFilter}"]`);
+      if (typeBtn) typeBtn.classList.add('active');
+    }
 
     // Set up tree callback
     setOnItemSelectCallback(onItemSelect);
@@ -268,8 +367,16 @@ async function loadData() {
     // Build the navigation tree
     buildTree(state.data, state.forks);
 
-    // Handle direct links
-    handleDirectLink();
+    // Re-apply filters to tree
+    if (savedForkFilter || savedTypeFilter || savedSearchTerm) {
+      applyFilters();
+    }
+
+    // Handle direct links (only on initial load)
+    if (!state.initialLoadComplete) {
+      handleDirectLink();
+      state.initialLoadComplete = true;
+    }
 
     loading.classList.add('hidden');
 
@@ -279,6 +386,30 @@ async function loadData() {
     error.textContent = `Error loading specification data: ${err.message}`;
     error.classList.remove('hidden');
   }
+}
+
+/**
+ * Load data and initialize the application
+ */
+async function loadData() {
+  // Discover available versions
+  await discoverVersions();
+
+  // Populate the version dropdown
+  populateVersionDropdown();
+
+  // Load data for the current version
+  await loadVersionData(state.currentVersion);
+}
+
+/**
+ * Initialize version selector
+ */
+function initVersionSelector() {
+  const select = document.getElementById('versionSelect');
+  select.addEventListener('change', () => {
+    onVersionChange(select.value);
+  });
 }
 
 /**
@@ -315,6 +446,7 @@ function init() {
   initResizable();
   initSearch();
   initNavigation();
+  initVersionSelector();
   initReferenceClickHandler();
   loadData();
 }
