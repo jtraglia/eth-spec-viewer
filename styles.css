@@ -206,6 +206,7 @@ input:checked + .toggle-slider:before {
 }
 
 .search-container {
+  position: relative;
   padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--border-color);
   background-color: var(--sidebar-bg);
