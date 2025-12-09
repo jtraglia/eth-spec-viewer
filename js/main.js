@@ -176,14 +176,29 @@ function onItemSelect(item, addHistory = true, preferredFork = null) {
 // Expose for reference navigation
 window.selectItem = onItemSelect;
 
+// Expose current version for URL generation
+window.getCurrentVersion = () => state.currentVersion;
+
 /**
  * Handle direct links (URL hash)
- * Format: category-itemName or category-itemName-FORK
+ * Format: version/category-itemName or version/category-itemName-FORK
+ * Legacy format: category-itemName or category-itemName-FORK
  */
 function handleDirectLink() {
   if (window.location.hash) {
     const hash = window.location.hash.substring(1);
-    const parts = hash.split('-');
+
+    // Check if hash contains version (has a slash)
+    let version = null;
+    let remainder = hash;
+
+    if (hash.includes('/')) {
+      const slashIndex = hash.indexOf('/');
+      version = hash.substring(0, slashIndex);
+      remainder = hash.substring(slashIndex + 1);
+    }
+
+    const parts = remainder.split('-');
 
     // Check if last part is a fork name
     const knownForks = ['phase0', 'altair', 'bellatrix', 'capella', 'deneb', 'electra', 'fulu', 'gloas'];
@@ -199,46 +214,65 @@ function handleDirectLink() {
       // Format: category-itemName
       itemName = parts.slice(1).join('-');
     } else {
-      itemName = hash;
+      itemName = remainder;
     }
 
-    // Try to find and select the item
-    setTimeout(() => {
-      const treeNodes = document.querySelectorAll('.tree-node[data-name]');
-      for (const node of treeNodes) {
-        const name = node.dataset.name;
-        if (name === itemName || name === hash) {
-          // Found the item
-          const label = node.querySelector('.tree-label');
-          if (label) {
-            // Expand parent nodes
-            let parent = node.parentElement;
-            while (parent) {
-              if (parent.classList.contains('tree-children')) {
-                parent.classList.remove('collapsed');
-                const parentNode = parent.previousElementSibling;
-                if (parentNode) {
-                  const icon = parentNode.querySelector('.tree-icon');
-                  if (icon) icon.textContent = '▼';
-                }
-              }
-              parent = parent.parentElement;
-            }
+    // If a version was specified in the URL, switch to it first
+    if (version && version !== state.currentVersion && state.availableVersions.includes(version)) {
+      state.currentVersion = version;
+      // Update the dropdown
+      const select = document.getElementById('versionSelect');
+      if (select) select.value = version;
+      // Load the version data, then select the item
+      loadVersionData(version).then(() => {
+        selectItemByName(itemName, preferredFork);
+      });
+    } else {
+      // Try to find and select the item in current version
+      setTimeout(() => {
+        selectItemByName(itemName, preferredFork);
+      }, 500);
+    }
+  }
+}
 
-            // Get item data and select with preferred fork
-            const itemData = node._itemData;
-            if (itemData) {
-              onItemSelect({ ...itemData, element: label }, true, preferredFork);
-            } else {
-              label.click();
+/**
+ * Select an item by name
+ */
+function selectItemByName(itemName, preferredFork) {
+  const treeNodes = document.querySelectorAll('.tree-node[data-name]');
+  for (const node of treeNodes) {
+    const name = node.dataset.name;
+    if (name === itemName) {
+      // Found the item
+      const label = node.querySelector('.tree-label');
+      if (label) {
+        // Expand parent nodes
+        let parent = node.parentElement;
+        while (parent) {
+          if (parent.classList.contains('tree-children')) {
+            parent.classList.remove('collapsed');
+            const parentNode = parent.previousElementSibling;
+            if (parentNode) {
+              const icon = parentNode.querySelector('.tree-icon');
+              if (icon) icon.textContent = '▼';
             }
-
-            label.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            break;
           }
+          parent = parent.parentElement;
         }
+
+        // Get item data and select with preferred fork
+        const itemData = node._itemData;
+        if (itemData) {
+          onItemSelect({ ...itemData, element: label }, true, preferredFork);
+        } else {
+          label.click();
+        }
+
+        label.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        break;
       }
-    }, 500);
+    }
   }
 }
 

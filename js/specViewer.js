@@ -63,8 +63,9 @@ export function displaySpec(item, data) {
     <span>${item.name}</span>
   `;
 
-  // Update URL hash for direct linking
-  const itemId = `${item.category}-${item.name}`;
+  // Update URL hash for direct linking (include version)
+  const version = window.getCurrentVersion ? window.getCurrentVersion() : 'nightly';
+  const itemId = `${version}/${item.category}-${item.name}`;
   history.replaceState(null, '', `#${itemId}`);
 
   // Clear existing content
@@ -138,8 +139,12 @@ function displayVariable(item, container) {
   copyBtn.title = 'Copy link to this item';
   copyBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
+    // Build URL with version
+    const version = window.getCurrentVersion ? window.getCurrentVersion() : 'nightly';
+    const itemId = `${version}/${item.category}-${item.name}`;
+    const url = new URL(window.location.href);
+    url.hash = itemId;
+    navigator.clipboard.writeText(url.href).then(() => {
       copyBtn.innerHTML = '<i class="fas fa-check"></i>';
       setTimeout(() => {
         copyBtn.innerHTML = '<i class="fas fa-link"></i>';
@@ -272,8 +277,9 @@ function displayCode(item, container) {
     copyBtn.title = 'Copy link to this item';
     copyBtn.addEventListener('click', (e) => {
       e.stopPropagation(); // Don't toggle the collapsible
-      // Include fork in the URL hash: category-itemName-fork
-      const itemId = `${item.category}-${item.name}-${fork.toLowerCase()}`;
+      // Include version and fork in the URL hash: version/category-itemName-fork
+      const version = window.getCurrentVersion ? window.getCurrentVersion() : 'nightly';
+      const itemId = `${version}/${item.category}-${item.name}-${fork.toLowerCase()}`;
       const url = new URL(window.location.href);
       url.hash = itemId;
       navigator.clipboard.writeText(url.href).then(() => {
