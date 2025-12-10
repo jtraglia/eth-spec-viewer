@@ -332,6 +332,19 @@ async function onVersionChange(version) {
 
   state.currentVersion = version;
 
+  // Update URL to reflect version change
+  if (itemNameToFind && state.currentItem) {
+    // If viewing an item, update the full hash
+    const itemId = `${version}/${state.currentItem.category}-${itemNameToFind}`;
+    history.replaceState(null, '', `#${itemId}`);
+  } else if (itemNameToFind) {
+    // Item name tracked but not found - just update version in URL
+    history.replaceState(null, '', `#${version}/`);
+  } else {
+    // No item selected - just show version
+    history.replaceState(null, '', `#${version}/`);
+  }
+
   // Reload data for the new version (preserves search term and filters)
   await loadVersionData(version);
 
@@ -438,6 +451,17 @@ async function loadVersionData(version) {
 async function loadData() {
   // Discover available versions
   await discoverVersions();
+
+  // Check if URL hash specifies a version
+  if (window.location.hash) {
+    const hash = window.location.hash.substring(1);
+    if (hash.includes('/')) {
+      const versionFromHash = hash.substring(0, hash.indexOf('/'));
+      if (state.availableVersions.includes(versionFromHash)) {
+        state.currentVersion = versionFromHash;
+      }
+    }
+  }
 
   // Populate the version dropdown
   populateVersionDropdown();
