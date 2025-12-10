@@ -207,6 +207,7 @@ function displayVariable(item, container) {
 
     // Use mainnet type, or minimal if mainnet not available
     const displayType = mainnetParsed.type || minimalParsed.type;
+    const typeCell = displayType ? `<code>${escapeHtml(displayType)}</code>` : 'N/A';
 
     if (hasDifferences) {
       row.innerHTML = `
@@ -215,7 +216,7 @@ function displayVariable(item, container) {
             ${getForkDisplayName(fork)}
           </span>
         </td>
-        <td><code>${escapeHtml(displayType)}</code></td>
+        <td>${typeCell}</td>
         <td><code>${escapeHtml(String(mainnetParsed.value))}</code></td>
         <td><code>${escapeHtml(String(minimalParsed.value))}</code></td>
       `;
@@ -226,7 +227,7 @@ function displayVariable(item, container) {
             ${getForkDisplayName(fork)}
           </span>
         </td>
-        <td><code>${escapeHtml(displayType)}</code></td>
+        <td>${typeCell}</td>
         <td><code>${escapeHtml(String(mainnetParsed.value))}</code></td>
       `;
     }
