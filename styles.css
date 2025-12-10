@@ -81,24 +81,43 @@ body {
 
 /* Version dropdown */
 .version-select {
-  padding: 0.4rem 0.8rem;
-  font-size: 0.9rem;
+  padding: 0.5rem 2rem 0.5rem 0.75rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.85rem;
+  font-weight: 500;
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  background-color: var(--bg-color);
+  border-radius: 8px;
+  background-color: var(--sidebar-bg);
   color: var(--text-color);
   cursor: pointer;
   transition: all 0.2s ease;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+}
+
+.version-select option {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-weight: normal;
+  padding: 0.5rem;
+}
+
+[data-theme="dark"] .version-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
 .version-select:hover {
   border-color: var(--link-color);
+  background-color: var(--hover-bg);
 }
 
 .version-select:focus {
   outline: none;
   border-color: var(--link-color);
-  box-shadow: 0 0 0 2px rgba(79, 172, 254, 0.2);
+  box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.15);
 }
 
 /* Navigation history box in header */
@@ -145,6 +164,7 @@ body {
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
+  line-height: 1;
 }
 
 /* Theme toggle */
