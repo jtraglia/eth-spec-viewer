@@ -7,7 +7,7 @@ import { initResizable } from './resizable.js';
 import { buildTree, filterTree, setOnItemSelectCallback } from './tree.js';
 import { displaySpec, clearSpec, openForkInViewer, showItemNotFound } from './specViewer.js';
 import { CATEGORY_TYPES, CATEGORY_ORDER, getForkDisplayName } from './constants.js';
-import { initReferenceClickHandler, addToHistory, goBack, goForward, navigateToReference } from './references.js';
+import { initReferenceClickHandler, addToHistory, goBack, goForward, navigateToReference, clearHistory } from './references.js';
 
 // Application state
 const state = {
@@ -379,6 +379,9 @@ async function onVersionChange(version) {
   const itemNameToFind = state.currentItemName;
 
   state.currentVersion = version;
+
+  // Clear navigation history when switching versions
+  clearHistory();
 
   // Update URL to reflect version change
   if (itemNameToFind && state.currentItem) {

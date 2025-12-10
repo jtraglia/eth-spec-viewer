@@ -45,6 +45,15 @@ export function clearRegistry() {
 }
 
 /**
+ * Clear navigation history
+ */
+export function clearHistory() {
+  navigationHistory.length = 0;
+  historyPosition = -1;
+  updateNavigationButtons();
+}
+
+/**
  * Build the reverse reference index from all items
  * Call this after all items have been registered
  * @param {Object} items - The items object from collectItems (category -> name -> item)
