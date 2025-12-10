@@ -414,6 +414,31 @@ export function clearSpec() {
 }
 
 /**
+ * Show a "not found" message when an item doesn't exist in the selected version
+ * @param {string} itemName - The name of the item that wasn't found
+ * @param {string} version - The version being viewed
+ */
+export function showItemNotFound(itemName, version) {
+  const title = document.getElementById('specTitle');
+  const breadcrumb = document.getElementById('breadcrumb');
+  const content = document.getElementById('specContent');
+
+  title.innerHTML = `<code>${escapeHtml(itemName)}</code>`;
+  breadcrumb.innerHTML = `<span>Not found in ${escapeHtml(version)}</span>`;
+
+  content.innerHTML = `
+    <div class="not-found-message">
+      <i class="fas fa-exclamation-triangle"></i>
+      <p>This specification item does not exist in version <strong>${escapeHtml(version)}</strong></p>
+      <p>Try selecting a different version from the dropdown</p>
+    </div>
+  `;
+
+  document.getElementById('welcome').classList.add('hidden');
+  document.getElementById('specViewer').classList.remove('hidden');
+}
+
+/**
  * Escape HTML special characters
  */
 function escapeHtml(text) {

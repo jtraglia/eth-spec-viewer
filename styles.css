@@ -975,6 +975,33 @@ pre[class*="language-"] {
   color: #fd971f;
 }
 
+/* Not found message */
+.not-found-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--text-color);
+  opacity: 0.8;
+}
+
+.not-found-message i {
+  font-size: 3rem;
+  color: var(--warning-color);
+  margin-bottom: 1rem;
+}
+
+.not-found-message p {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+}
+
+.not-found-message p:first-of-type {
+  font-size: 1.1rem;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .sidebar {

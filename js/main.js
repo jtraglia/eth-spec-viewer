@@ -5,7 +5,7 @@
 import { initDarkMode } from './darkMode.js';
 import { initResizable } from './resizable.js';
 import { buildTree, filterTree, setOnItemSelectCallback } from './tree.js';
-import { displaySpec, clearSpec, openForkInViewer } from './specViewer.js';
+import { displaySpec, clearSpec, openForkInViewer, showItemNotFound } from './specViewer.js';
 import { CATEGORY_TYPES, CATEGORY_ORDER, getForkDisplayName } from './constants.js';
 import { initReferenceClickHandler, addToHistory, goBack, goForward, navigateToReference } from './references.js';
 
@@ -13,6 +13,7 @@ import { initReferenceClickHandler, addToHistory, goBack, goForward, navigateToR
 const state = {
   data: null,
   currentItem: null,
+  currentItemName: null, // Track item name separately for version changes
   forks: [],
   categories: [],
   activeForkFilter: null,
@@ -148,6 +149,7 @@ function initSearch() {
  */
 function onItemSelect(item, addHistory = true, preferredFork = null) {
   state.currentItem = item;
+  state.currentItemName = item.name;
 
   // Update active state in tree
   document.querySelectorAll('.tree-label.active').forEach(el => el.classList.remove('active'));
@@ -325,9 +327,8 @@ function populateVersionDropdown() {
 async function onVersionChange(version) {
   if (version === state.currentVersion) return;
 
-  // Save current item name to re-select after loading
-  const currentItemName = state.currentItem?.name;
-  const currentItemCategory = state.currentItem?.category;
+  // Use tracked item name (persists even when item not found in a version)
+  const itemNameToFind = state.currentItemName;
 
   state.currentVersion = version;
 
@@ -335,19 +336,28 @@ async function onVersionChange(version) {
   await loadVersionData(version);
 
   // Try to re-select the same item in the new version
-  if (currentItemName) {
+  if (itemNameToFind) {
     // Find the item in the new data
+    let itemFound = false;
     const treeNodes = document.querySelectorAll('.tree-node[data-name]');
     for (const node of treeNodes) {
-      if (node.dataset.name === currentItemName) {
+      if (node.dataset.name === itemNameToFind) {
         const itemData = node._itemData;
         if (itemData) {
           const label = node.querySelector('.tree-label');
           onItemSelect({ ...itemData, element: label }, false);
           label.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          itemFound = true;
         }
         break;
       }
+    }
+
+    // Show not found message if item doesn't exist in this version
+    if (!itemFound) {
+      showItemNotFound(itemNameToFind, version);
+      state.currentItem = null;
+      // Keep currentItemName so we can try again when version changes
     }
   }
 }
