@@ -9,6 +9,84 @@ import { displaySpec, clearSpec, openForkInViewer, showItemNotFound } from './sp
 import { CATEGORY_TYPES, CATEGORY_ORDER, getForkDisplayName } from './constants.js';
 import { initReferenceClickHandler, addToHistory, goBack, goForward, navigateToReference, clearHistory } from './references.js';
 
+// Mobile sidebar state
+let isMobileMenuOpen = false;
+
+/**
+ * Check if we're in mobile view
+ */
+function isMobileView() {
+  return window.innerWidth <= 768;
+}
+
+/**
+ * Toggle mobile sidebar
+ */
+function toggleMobileSidebar(forceClose = false) {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  const menuToggle = document.getElementById('menuToggle');
+
+  if (forceClose || isMobileMenuOpen) {
+    // Close sidebar
+    sidebar.classList.remove('open');
+    overlay.classList.remove('visible');
+    isMobileMenuOpen = false;
+    if (menuToggle) {
+      menuToggle.setAttribute('aria-expanded', 'false');
+    }
+  } else {
+    // Open sidebar
+    sidebar.classList.add('open');
+    overlay.classList.add('visible');
+    isMobileMenuOpen = true;
+    if (menuToggle) {
+      menuToggle.setAttribute('aria-expanded', 'true');
+    }
+  }
+}
+
+/**
+ * Close mobile sidebar if open
+ */
+function closeMobileSidebar() {
+  if (isMobileMenuOpen) {
+    toggleMobileSidebar(true);
+  }
+}
+
+/**
+ * Initialize mobile sidebar functionality
+ */
+function initMobileSidebar() {
+  const menuToggle = document.getElementById('menuToggle');
+  const overlay = document.getElementById('sidebarOverlay');
+
+  // Toggle button click
+  if (menuToggle) {
+    menuToggle.addEventListener('click', () => toggleMobileSidebar());
+  }
+
+  // Overlay click closes sidebar
+  if (overlay) {
+    overlay.addEventListener('click', () => closeMobileSidebar());
+  }
+
+  // Escape key closes sidebar
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isMobileMenuOpen) {
+      closeMobileSidebar();
+    }
+  });
+
+  // Close sidebar on window resize if going to desktop view
+  window.addEventListener('resize', () => {
+    if (!isMobileView() && isMobileMenuOpen) {
+      closeMobileSidebar();
+    }
+  });
+}
+
 // Application state
 const state = {
   data: null,
@@ -173,6 +251,11 @@ function onItemSelect(item, addHistory = true, preferredFork = null) {
   // Show spec viewer, hide welcome
   document.getElementById('welcome').classList.add('hidden');
   document.getElementById('specViewer').classList.remove('hidden');
+
+  // Close mobile sidebar after selecting an item
+  if (isMobileView()) {
+    closeMobileSidebar();
+  }
 }
 
 // Expose for reference navigation
@@ -563,6 +646,7 @@ function initNavigation() {
 function init() {
   initDarkMode();
   initResizable();
+  initMobileSidebar();
   initSearch();
   initNavigation();
   initVersionSelector();

@@ -17,6 +17,9 @@
 <body>
   <header class="header-container">
     <div class="header-left">
+      <button id="menuToggle" class="menu-toggle" aria-label="Toggle navigation menu">
+        <i class="fas fa-bars"></i>
+      </button>
       <h1>Ethereum Consensus Specifications</h1>
       <select id="versionSelect" class="version-select" aria-label="Select spec version">
         <option value="nightly">nightly</option>
@@ -45,6 +48,9 @@
   </header>
 
   <div class="main-container">
+    <!-- Mobile overlay -->
+    <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
     <!-- Sidebar navigation -->
     <aside class="sidebar" id="sidebar">
       <div class="search-container">
