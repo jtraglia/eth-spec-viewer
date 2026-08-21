@@ -18,6 +18,8 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v6
 
+      # --- consensus-specs: build each git tag from source ---
+
       - name: Clone Consensus Specs
         run: |
           git clone https://github.com/ethereum/consensus-specs.git
@@ -90,17 +92,104 @@ jobs:
             # Create tag directory and copy files
             mkdir -p "../specs/consensus/$tag"
             cp pyspec.json "../specs/consensus/$tag/spec.json"
+
+            # Record the tagged commit's date for version ordering
+            echo "$tag=$(git log -1 --format=%cI)" >> /tmp/consensus-dates.txt
           done
 
-      - name: Update versions.json
-        run: |
-          # Generate versions.json from existing version directories
-          cd specs/consensus
-          # List all directories (versions) and output as JSON array
-          ls -d */ 2>/dev/null | sed 's/\///' | jq -R . | jq -s . > versions.json
-          cd ../..
+      # --- execution-specs: build each published release from its source tarball ---
 
+      - name: Process New Execution Releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p specs/execution
+
+          # execution-specs publishes releases constantly - mostly fixture
+          # bundles (tests-*) cut from devnet branches, each carrying the spec
+          # tree of its branch. A floor keeps the viewer from backfilling years
+          # of them. Deliberately a date rather than a count, so newly
+          # published releases are picked up on their own; raise it to drop
+          # older versions.
+          MIN_RELEASE_DATE="2026-07-15"
+
+          gh api --paginate repos/ethereum/execution-specs/releases \
+            --jq '.[] | select(.draft==false) | [.published_at, .tag_name] | @tsv' \
+            | awk -F'\t' -v min="$MIN_RELEASE_DATE" '$1 >= min' \
+            | sort -r | cut -f2 > /tmp/exec-releases.txt
+
+          echo "Releases published on or after $MIN_RELEASE_DATE:"
+          cat /tmp/exec-releases.txt
+
+          while IFS= read -r tag; do
+            if [[ -z "$tag" ]]; then continue; fi
+
+            if [[ -d "specs/execution/$tag" ]]; then
+              echo "Release $tag already processed, skipping..."
+              continue
+            fi
+
+            echo "Processing new release: $tag"
+
+            # A tag points at a commit, so the branch it was cut from does not
+            # matter; the auto-generated source tarball is enough
+            curl -fsSL \
+              "https://github.com/ethereum/execution-specs/archive/refs/tags/${tag}.tar.gz" \
+              -o /tmp/exec-src.tar.gz
+            rm -rf /tmp/exec-src
+            mkdir -p /tmp/exec-src
+            tar xzf /tmp/exec-src.tar.gz -C /tmp/exec-src --strip-components=1
+
+            python3 scripts/extract_execution_specs.py \
+              /tmp/exec-src "specs/execution/$tag/spec.json"
+          done < /tmp/exec-releases.txt
+
+          # Drop versions no longer selected, i.e. ones now older than the
+          # cutoff, so the directory tracks the filter
+          for dir in specs/execution/*/; do
+            name=$(basename "$dir")
+            if [[ "$name" == "nightly" ]]; then continue; fi
+            if ! grep -qxF "$name" /tmp/exec-releases.txt; then
+              echo "Removing superseded version: $name"
+              rm -rf "$dir"
+            fi
+          done
+
+          # Record each release's commit date so versions.json can be ordered
+          # by when the snapshot was actually cut
+          : > /tmp/exec-dates.txt
+          while IFS= read -r tag; do
+            if [[ -z "$tag" ]]; then continue; fi
+            date=$(gh api "repos/ethereum/execution-specs/commits/$tag" \
+              --jq '.commit.committer.date')
+            echo "$tag=$date" >> /tmp/exec-dates.txt
+          done < /tmp/exec-releases.txt
+
+          EXEC_DATES=()
+          while IFS= read -r line; do
+            if [[ -n "$line" ]]; then EXEC_DATES+=("$line"); fi
+          done < /tmp/exec-dates.txt
+
+          python3 scripts/update_versions.py specs/execution "${EXEC_DATES[@]}"
+
+      - name: Update Consensus versions.json
+        run: |
+          # Dates for tags built this run; tags built previously are already
+          # recorded in versions.json and carried forward
+          touch /tmp/consensus-dates.txt
+          TAG_DATES=()
+          while IFS= read -r line; do
+            if [[ -n "$line" ]]; then TAG_DATES+=("$line"); fi
+          done < /tmp/consensus-dates.txt
+
+          python3 scripts/update_versions.py specs/consensus "${TAG_DATES[@]}"
+
+      # Both repos are committed together in a single push, so this cannot race
+      # itself the way two separate workflows writing to specs/ would.
       - name: Commit and Push Changes
+        # Still runs when a build step failed, so one broken upstream does not
+        # hold back the other repo's new versions.
+        if: ${{ !cancelled() }}
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
@@ -108,13 +197,14 @@ jobs:
           # Remove the cloned consensus-specs directory
           rm -rf consensus-specs/
 
-          # Check if there are any changes
-          if ! git diff --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
-            git add specs/consensus/
-            git commit -m "Add consensus-specs tagged versions"
-            git push
+          # Staging first so the check covers new files as well as modified ones
+          git add specs/
+
+          if git diff --cached --quiet; then
+            echo "No new versions detected. Skipping commit."
           else
-            echo "No new tags detected. Skipping commit."
+            git commit -m "Add tagged spec versions"
+            git push
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

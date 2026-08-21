@@ -1,1 +1,46 @@
-["nightly"]
+[
+  {
+    "version": "nightly",
+    "date": "2026-08-20T02:45:51Z"
+  },
+  {
+    "version": "tests-focil-devnet@v0.2.0",
+    "date": "2026-08-20T00:12:48Z"
+  },
+  {
+    "version": "tests-glamsterdam-devnet@v8.1.1",
+    "date": "2026-08-19T10:26:19Z"
+  },
+  {
+    "version": "tests-zkevm-benchmark@v0.8.2",
+    "date": "2026-08-17T23:19:26Z"
+  },
+  {
+    "version": "tests-zkevm@v0.8.2",
+    "date": "2026-08-17T23:19:26Z"
+  },
+  {
+    "version": "tests-frames-devnet@v0.0.0",
+    "date": "2026-08-13T10:44:56Z"
+  },
+  {
+    "version": "tests-zkevm@v0.8.0",
+    "date": "2026-08-11T20:12:01Z"
+  },
+  {
+    "version": "tests-glamsterdam-devnet@v8.1.0",
+    "date": "2026-08-05T11:07:59Z"
+  },
+  {
+    "version": "tests-glamsterdam-devnet@v8.0.0",
+    "date": "2026-07-31T10:04:31Z"
+  },
+  {
+    "version": "tests-glamsterdam-devnet@v7.2.1",
+    "date": "2026-07-24T10:51:38Z"
+  },
+  {
+    "version": "tests@v20.0.1",
+    "date": "2026-07-15T12:31:17Z"
+  }
+]

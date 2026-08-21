@@ -4,12 +4,16 @@ Extract execution-specs into the JSON shape the spec viewer consumes.
 
 consensus-specs builds its own spec object, so that side just dumps it (see
 write_pyspec_dict.patch). execution-specs has no equivalent: it is plain Python
-packages under src/ethereum/forks/<fork>/, so this walks the source with `ast`
-and emits the same {network: {fork: {category: {name: source}}}} shape.
+packages, one per fork, so this walks the source with `ast` and emits the same
+{network: {fork: {category: {name: source}}}} shape.
 
 Item names are qualified with their module path (`vm.gas.charge_gas`) because
 a bare name is not unique within a fork - `pop` exists in both vm.stack and
 vm.instructions.stack.
+
+Fork packages are located by looking for FORK_CRITERIA rather than by a fixed
+path, since the layout has moved: releases up to v1.17.0 put forks directly
+under src/ethereum/, later ones under src/ethereum/forks/.
 
 Usage:
     extract_execution_specs.py <execution-specs-checkout> <output.json>
@@ -30,6 +34,25 @@ NETWORK = "mainnet"
 SCHEDULED_BY_BLOCK = 0
 SCHEDULED_BY_TIME = 1
 UNSCHEDULED = 2
+
+
+def find_fork_dirs(checkout):
+    """
+    Locate every fork package in a checkout.
+
+    A fork is identified by its __init__.py declaring FORK_CRITERIA, which is
+    stable across the layout change and correctly skips sibling packages such
+    as crypto, utils and assets.
+    """
+    root = checkout / "src" / "ethereum"
+    if not root.is_dir():
+        return []
+
+    return [
+        init.parent
+        for init in sorted(root.rglob("__init__.py"))
+        if "FORK_CRITERIA" in init.read_text()
+    ]
 
 
 def fork_sort_key(fork_dir):
@@ -157,15 +180,10 @@ def main():
     checkout = Path(sys.argv[1])
     output = Path(sys.argv[2])
 
-    forks_root = checkout / "src" / "ethereum" / "forks"
-    if not forks_root.is_dir():
-        print(f"error: no fork packages at {forks_root}", file=sys.stderr)
+    fork_dirs = sorted(find_fork_dirs(checkout), key=fork_sort_key)
+    if not fork_dirs:
+        print(f"error: no fork packages found under {checkout}", file=sys.stderr)
         return 1
-
-    fork_dirs = sorted(
-        (d for d in forks_root.iterdir() if d.is_dir() and (d / "__init__.py").exists()),
-        key=fork_sort_key,
-    )
 
     # The viewer reads this rather than hardcoding a fork list that would go
     # stale every time a fork is added.

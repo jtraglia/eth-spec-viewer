@@ -402,7 +402,12 @@ async function discoverVersions() {
   try {
     const response = await fetch(repo.versionsPath);
     if (response.ok) {
-      versions = await response.json();
+      const entries = await response.json();
+      // versions.json is a list of {version, date} already ordered newest
+      // first. Older files were a plain list of names, so accept both.
+      versions = entries.map(entry =>
+        typeof entry === 'string' ? entry : entry.version
+      );
     }
   } catch (err) {
     // If versions.json doesn't exist, fall back to nightly only
@@ -411,55 +416,6 @@ async function discoverVersions() {
 
   state.versionsByRepo[repo.id] = versions;
   state.availableVersions = versions;
-}
-
-/**
- * Parse a semver string into components for sorting
- * @param {string} version - Version string like "v1.6.0" or "v1.6.0-alpha.3"
- * @returns {Object} Parsed version with major, minor, patch, prerelease info
- */
-function parseVersion(version) {
-  // Remove leading 'v'
-  const v = version.replace(/^v/, '');
-
-  // Split into base version and prerelease
-  const [base, prerelease] = v.split('-');
-  const [major, minor, patch] = base.split('.').map(Number);
-
-  // Parse prerelease: alpha < beta < (no prerelease = stable)
-  let prereleaseType = 3; // stable (highest)
-  let prereleaseNum = 0;
-
-  if (prerelease) {
-    if (prerelease.startsWith('alpha')) {
-      prereleaseType = 1;
-      prereleaseNum = parseInt(prerelease.replace('alpha.', ''), 10) || 0;
-    } else if (prerelease.startsWith('beta')) {
-      prereleaseType = 2;
-      prereleaseNum = parseInt(prerelease.replace('beta.', ''), 10) || 0;
-    }
-  }
-
-  return { major, minor, patch, prereleaseType, prereleaseNum };
-}
-
-/**
- * Compare two version strings for sorting (descending - newest first)
- */
-function compareVersions(a, b) {
-  const va = parseVersion(a);
-  const vb = parseVersion(b);
-
-  // Compare major.minor.patch first
-  if (vb.major !== va.major) return vb.major - va.major;
-  if (vb.minor !== va.minor) return vb.minor - va.minor;
-  if (vb.patch !== va.patch) return vb.patch - va.patch;
-
-  // Same base version - compare prerelease (stable > beta > alpha)
-  if (vb.prereleaseType !== va.prereleaseType) return vb.prereleaseType - va.prereleaseType;
-
-  // Same prerelease type - compare number (higher number = newer)
-  return vb.prereleaseNum - va.prereleaseNum;
 }
 
 /**
@@ -522,14 +478,9 @@ function populateVersionDropdown() {
   const select = document.getElementById('versionSelect');
   select.innerHTML = '';
 
-  // Sort versions: nightly first, then tagged versions in reverse order (newest first)
-  const sortedVersions = [...state.availableVersions].sort((a, b) => {
-    if (a === 'nightly') return -1;
-    if (b === 'nightly') return 1;
-    return compareVersions(a, b);
-  });
-
-  sortedVersions.forEach(version => {
+  // versions.json is sorted newest first by the date each version was cut, so
+  // the file's order is the display order for every repo
+  state.availableVersions.forEach(version => {
     const option = document.createElement('option');
     option.value = version;
     option.textContent = version;

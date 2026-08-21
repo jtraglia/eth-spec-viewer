@@ -35,6 +35,10 @@ jobs:
           cd consensus-specs
           make _pyspec
           cp pyspec.json ../specs/consensus/nightly/spec.json
+          cd ..
+          # Date the snapshot by the upstream commit it was built from
+          python3 scripts/update_versions.py specs/consensus \
+            "nightly=$(git -C consensus-specs log -1 --format=%cI)"
 
       # --- execution-specs ---
 
@@ -51,11 +55,9 @@ jobs:
         run: |
           python3 scripts/extract_execution_specs.py \
             execution-specs specs/execution/nightly/spec.json
-
-      - name: Update Execution versions.json
-        run: |
-          cd specs/execution
-          ls -d */ 2>/dev/null | sed 's|/||' | jq -R . | jq -s . > versions.json
+          # Date the snapshot by the upstream commit it was built from
+          python3 scripts/update_versions.py specs/execution \
+            "nightly=$(git -C execution-specs log -1 --format=%cI)"
 
       # Both repos are committed together in a single push. Running them as two
       # workflows on the same schedule meant whichever pushed second was
