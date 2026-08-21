@@ -2,6 +2,8 @@
  * Reference linking module - makes spec references clickable
  */
 
+import { FORK_ORDER } from './constants.js';
+
 // Registry of all known item names mapped to their tree node elements
 const itemRegistry = new Map();
 
@@ -11,9 +13,6 @@ const usedByIndex = new Map();
 // Navigation history - stores { name, fork } objects
 const navigationHistory = [];
 let historyPosition = -1;
-
-// Fork suffixes for parsing fork-specific names
-const FORK_SUFFIXES = ['PHASE0', 'ALTAIR', 'BELLATRIX', 'CAPELLA', 'DENEB', 'ELECTRA', 'FULU', 'GLOAS'];
 
 /**
  * Register an item name for reference linking
@@ -135,7 +134,7 @@ export function buildUsedByIndex(items) {
  */
 function parseForkNameInternal(varName) {
   const varNameUpper = varName.toUpperCase();
-  for (const fork of FORK_SUFFIXES) {
+  for (const fork of FORK_ORDER) {
     const suffix = '_' + fork;
     if (varNameUpper.endsWith(suffix)) {
       return {
@@ -242,7 +241,7 @@ function updateNavigationButtons() {
  */
 function parseForkName(varName) {
   const varNameUpper = varName.toUpperCase();
-  for (const fork of FORK_SUFFIXES) {
+  for (const fork of FORK_ORDER) {
     const suffix = '_' + fork;
     if (varNameUpper.endsWith(suffix)) {
       return {

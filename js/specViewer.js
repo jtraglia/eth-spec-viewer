@@ -2,8 +2,9 @@
  * Specification viewer module - displays selected items
  */
 
-import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName } from './constants.js';
+import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName, FORK_ORDER } from './constants.js';
 import { addClickableReferences, getUsedBy, navigateToReference } from './references.js';
+import { isDiffEnabled, createDiffControls, computeDiffStats, renderDiff, stripComments } from './forkDiff.js';
 
 // Current item being displayed
 let currentItem = null;
@@ -44,9 +45,46 @@ function createUsedBySection(itemName) {
 }
 
 /**
+ * Remove the diff controls from the spec header
+ */
+function removeDiffControls() {
+  const controls = document.querySelector('.spec-header .diff-controls');
+  if (controls) controls.remove();
+}
+
+/**
+ * Re-render the item currently on screen, preserving which forks are expanded.
+ * Used when a diff control changes the rendering.
+ */
+function rerenderCurrentItem() {
+  if (!currentItem) return;
+
+  const openForks = Array.from(document.querySelectorAll('#specContent .fork-code-block'))
+    .filter(block => {
+      const content = block.querySelector('.file-content');
+      return content && !content.classList.contains('collapsed');
+    })
+    .map(block => block.dataset.fork);
+
+  displaySpec(currentItem);
+
+  document.querySelectorAll('#specContent .fork-code-block').forEach(block => {
+    const content = block.querySelector('.file-content');
+    const icon = block.querySelector('.file-toggle-icon');
+    if (!content || !icon) return;
+
+    const shouldOpen = openForks.includes(block.dataset.fork);
+    content.classList.toggle('collapsed', !shouldOpen);
+    icon.className = shouldOpen
+      ? 'fas fa-chevron-down file-toggle-icon'
+      : 'fas fa-chevron-right file-toggle-icon';
+  });
+}
+
+/**
  * Display a specification item
  */
-export function displaySpec(item, data) {
+export function displaySpec(item) {
   currentItem = item;
 
   const title = document.getElementById('specTitle');
@@ -73,6 +111,13 @@ export function displaySpec(item, data) {
 
   // Check if this is a variable type (constants, presets, config) or code type
   const isVariable = ['constant_vars', 'preset_vars', 'config_vars'].includes(item.category);
+
+  // Fork diffing only applies to code items, and only once there are at least
+  // two recorded forks to compare
+  removeDiffControls();
+  if (!isVariable && item.forks.length > 1) {
+    document.querySelector('.spec-header').appendChild(createDiffControls(rerenderCurrentItem));
+  }
 
   if (isVariable) {
     displayVariable(item, content);
@@ -243,17 +288,29 @@ function displayVariable(item, container) {
 
 /**
  * Display a code item (functions, types, classes, etc.)
- * Only shows forks where the value changed
+ *
+ * Only shows forks where the value changed, newest first. When fork diffing is
+ * on, every fork except the one that introduced the item renders as a diff
+ * against the previous fork that changed it.
  */
 function displayCode(item, container) {
-  // Show each fork's code in collapsible boxes
-  // item.forks already only contains forks where the code changed
-  // Reverse to show newest first
-  const forksReversed = [...item.forks].reverse();
+  // item.forks is in chronological order and holds only the forks that changed
+  // the value, so the entry before a fork is the version it changed away from
+  const forksAscending = item.forks;
+  const forksReversed = [...forksAscending].reverse();
+  const diffMode = isDiffEnabled();
 
   forksReversed.forEach((fork, index) => {
     const value = item.values[fork];
     const isFirst = index === 0;
+
+    const prevFork = forksAscending[forksAscending.length - 2 - index] || null;
+    const showDiff = diffMode && prevFork !== null;
+
+    // While diffing, comments are stripped everywhere - including the
+    // introducing fork's plain block - so all the blocks read consistently
+    const shownCode = diffMode ? stripComments(String(value)) : String(value);
+    const prevShownCode = showDiff ? stripComments(String(item.values[prevFork])) : null;
 
     const box = document.createElement('div');
     box.className = 'file-box fork-code-block';
@@ -270,6 +327,30 @@ function displayCode(item, container) {
     nameEl.className = 'file-name-badge';
     nameEl.textContent = getForkDisplayName(fork);
     nameEl.style.backgroundColor = getForkColor(fork);
+
+    header.appendChild(icon);
+    header.appendChild(nameEl);
+
+    if (showDiff) {
+      const { added, removed } = computeDiffStats(prevShownCode, shownCode);
+
+      if (added > 0 || removed > 0) {
+        const stats = document.createElement('span');
+        stats.className = 'diff-stats';
+        stats.innerHTML = `
+          <span class="diff-stat-added">+${added}</span>
+          <span class="diff-stat-removed">-${removed}</span>
+        `;
+        header.appendChild(stats);
+      } else {
+        // The fork changed the item, but only in comments
+        const badge = document.createElement('span');
+        badge.className = 'diff-no-change-badge';
+        badge.textContent = 'No changes';
+        badge.title = 'This fork only changed comments';
+        header.appendChild(badge);
+      }
+    }
 
     // Copy link button
     const copyBtn = document.createElement('button');
@@ -291,8 +372,6 @@ function displayCode(item, container) {
       });
     });
 
-    header.appendChild(icon);
-    header.appendChild(nameEl);
     header.appendChild(copyBtn);
 
     // Content
@@ -302,15 +381,22 @@ function displayCode(item, container) {
       content.classList.add('collapsed');
     }
 
-    const codeBox = document.createElement('pre');
-    codeBox.className = 'test-code-box';
+    if (showDiff) {
+      const diffBox = document.createElement('div');
+      diffBox.className = 'diff-container';
+      renderDiff(diffBox, prevShownCode, shownCode);
+      content.appendChild(diffBox);
+    } else {
+      const codeBox = document.createElement('pre');
+      codeBox.className = 'test-code-box';
 
-    const code = document.createElement('code');
-    code.className = 'language-python';
-    code.textContent = value;
+      const code = document.createElement('code');
+      code.className = 'language-python';
+      code.textContent = shownCode;
 
-    codeBox.appendChild(code);
-    content.appendChild(codeBox);
+      codeBox.appendChild(code);
+      content.appendChild(codeBox);
+    }
 
     // Toggle functionality
     header.addEventListener('click', () => {
@@ -324,7 +410,8 @@ function displayCode(item, container) {
     container.appendChild(box);
   });
 
-  // Trigger syntax highlighting
+  // Trigger syntax highlighting. Diff blocks are highlighted as they are built,
+  // and carry no language-* class, so Prism leaves them alone here.
   if (typeof Prism !== 'undefined') {
     Prism.highlightAllUnder(container);
   }
@@ -334,10 +421,11 @@ function displayCode(item, container) {
   container.querySelectorAll('code[class*="language-python"]').forEach(block => {
     addClickableReferences(block);
   });
-}
 
-// Fork order for finding the best matching fork
-const FORK_ORDER = ['PHASE0', 'ALTAIR', 'BELLATRIX', 'CAPELLA', 'DENEB', 'ELECTRA', 'FULU', 'GLOAS'];
+  container.querySelectorAll('.diff-container').forEach(block => {
+    addClickableReferences(block);
+  });
+}
 
 /**
  * Open a specific fork in the current spec viewer
@@ -406,6 +494,7 @@ export function openForkInViewer(preferredFork) {
 export function clearSpec() {
   currentItem = null;
 
+  removeDiffControls();
   document.getElementById('specTitle').textContent = '';
   document.getElementById('breadcrumb').innerHTML = '';
   document.getElementById('specContent').innerHTML = '';
@@ -423,6 +512,9 @@ export function showItemNotFound(itemName, version) {
   const title = document.getElementById('specTitle');
   const breadcrumb = document.getElementById('breadcrumb');
   const content = document.getElementById('specContent');
+
+  currentItem = null;
+  removeDiffControls();
 
   title.innerHTML = `<code>${escapeHtml(itemName)}</code>`;
   breadcrumb.innerHTML = `<span>Not found in ${escapeHtml(version)}</span>`;

@@ -6,7 +6,7 @@ import { initDarkMode } from './darkMode.js';
 import { initResizable } from './resizable.js';
 import { buildTree, filterTree, setOnItemSelectCallback } from './tree.js';
 import { displaySpec, clearSpec, openForkInViewer, showItemNotFound } from './specViewer.js';
-import { CATEGORY_TYPES, CATEGORY_ORDER, getForkDisplayName } from './constants.js';
+import { CATEGORY_TYPES, CATEGORY_ORDER, FORK_ORDER, getForkDisplayName } from './constants.js';
 import { initReferenceClickHandler, addToHistory, goBack, goForward, navigateToReference, clearHistory } from './references.js';
 
 // Mobile sidebar state
@@ -108,14 +108,13 @@ function extractForks(data) {
   const networkData = data.mainnet || data.minimal;
   if (!networkData) return [];
 
-  const knownOrder = ['PHASE0', 'ALTAIR', 'BELLATRIX', 'CAPELLA', 'DENEB', 'ELECTRA', 'FULU'];
   const discoveredForks = Object.keys(networkData)
     .filter(f => !f.toUpperCase().startsWith('EIP') && f.toUpperCase() !== 'WHISK')
     .map(f => f.toUpperCase());
 
   // Sort by known order, then alphabetically for unknown forks
-  const knownForks = knownOrder.filter(f => discoveredForks.includes(f));
-  const unknownForks = discoveredForks.filter(f => !knownOrder.includes(f)).sort();
+  const knownForks = FORK_ORDER.filter(f => discoveredForks.includes(f));
+  const unknownForks = discoveredForks.filter(f => !FORK_ORDER.includes(f)).sort();
 
   return [...knownForks, ...unknownForks];
 }
@@ -241,7 +240,7 @@ function onItemSelect(item, addHistory = true, preferredFork = null) {
   }
 
   // Display the spec
-  displaySpec(item, state.data);
+  displaySpec(item);
 
   // Open the preferred fork if specified
   if (preferredFork) {
@@ -286,7 +285,7 @@ function handleDirectLink() {
     const parts = remainder.split('-');
 
     // Check if last part is a fork name
-    const knownForks = ['phase0', 'altair', 'bellatrix', 'capella', 'deneb', 'electra', 'fulu', 'gloas'];
+    const knownForks = FORK_ORDER.map(f => f.toLowerCase());
     let preferredFork = null;
     let itemName = null;
 

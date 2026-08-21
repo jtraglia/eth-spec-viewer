@@ -2,7 +2,7 @@
  * Tree navigation module for the specification viewer
  */
 
-import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName, CATEGORY_ORDER } from './constants.js';
+import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName, CATEGORY_ORDER, FORK_ORDER } from './constants.js';
 import { registerItem, clearRegistry, buildUsedByIndex } from './references.js';
 
 // Callback for when an item is selected
@@ -19,7 +19,7 @@ export function setOnItemSelectCallback(callback) {
 }
 
 // Fork suffixes in order (oldest to newest)
-const FORK_SUFFIXES = ['_PHASE0', '_ALTAIR', '_BELLATRIX', '_CAPELLA', '_DENEB', '_ELECTRA', '_FULU', '_GLOAS'];
+const FORK_SUFFIXES = FORK_ORDER.map(fork => `_${fork}`);
 
 /**
  * Get the base name of a variable by stripping fork suffixes
