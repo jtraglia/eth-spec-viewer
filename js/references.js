@@ -2,10 +2,18 @@
  * Reference linking module - makes spec references clickable
  */
 
-import { FORK_ORDER } from './constants.js';
+import { getForkOrder } from './constants.js';
 
 // Registry of all known item names mapped to their tree node elements
 const itemRegistry = new Map();
+
+// Short name -> canonical item name. execution-specs items are qualified by
+// module (`vm.gas.charge_gas`) but the code refers to them by bare name, so
+// references would not resolve without this.
+const aliasIndex = new Map();
+
+// Short names claimed by more than one item; linking those would be a guess
+const ambiguousAliases = new Set();
 
 // Reverse reference index: maps item name -> Set of item names that use it
 const usedByIndex = new Map();
@@ -16,23 +24,63 @@ let historyPosition = -1;
 
 /**
  * Register an item name for reference linking
+ * @param {string} name - Canonical item name
+ * @param {HTMLElement} element - Tree node for the item
+ * @param {Array<string>} [aliases] - Short names the code may refer to it by
  */
-export function registerItem(name, element) {
+export function registerItem(name, element, aliases = []) {
   itemRegistry.set(name, element);
+
+  aliases.forEach(alias => {
+    if (!alias || alias === name || ambiguousAliases.has(alias)) return;
+
+    const claimed = aliasIndex.get(alias);
+    if (claimed === undefined) {
+      aliasIndex.set(alias, name);
+    } else if (claimed !== name) {
+      // Two items share this short name, so drop it rather than link to
+      // whichever happened to register first
+      aliasIndex.delete(alias);
+      ambiguousAliases.add(alias);
+    }
+  });
+}
+
+/**
+ * Resolve an identifier appearing in code to a canonical item name
+ * @returns {string|null} The item name, or null if it is not a known item
+ */
+export function resolveItemName(identifier) {
+  if (itemRegistry.has(identifier)) return identifier;
+
+  const aliased = aliasIndex.get(identifier);
+  if (aliased) return aliased;
+
+  // Fork-specific names such as MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA resolve to
+  // the item they are a variant of
+  const { base, fork } = parseForkNameInternal(identifier);
+  if (fork && base !== identifier) {
+    if (itemRegistry.has(base)) return base;
+    const baseAlias = aliasIndex.get(base);
+    if (baseAlias) return baseAlias;
+  }
+
+  return null;
 }
 
 /**
  * Check if an item exists in the registry
  */
 export function hasItem(name) {
-  return itemRegistry.has(name);
+  return resolveItemName(name) !== null;
 }
 
 /**
  * Get the element for an item name
  */
 export function getItemElement(name) {
-  return itemRegistry.get(name);
+  const canonical = resolveItemName(name);
+  return canonical ? itemRegistry.get(canonical) : undefined;
 }
 
 /**
@@ -40,6 +88,8 @@ export function getItemElement(name) {
  */
 export function clearRegistry() {
   itemRegistry.clear();
+  aliasIndex.clear();
+  ambiguousAliases.clear();
   usedByIndex.clear();
 }
 
@@ -105,22 +155,12 @@ export function buildUsedByIndex(items) {
         while ((match = identifierRegex.exec(textContent)) !== null) {
           const identifier = match[1];
 
-          // Skip self-references
-          if (identifier === sourceName) continue;
+          // Check if this identifier is a known item. The self-reference check
+          // happens after resolving, since a qualified item is referred to by
+          // its bare name in the code.
+          const targetName = resolveItemName(identifier);
 
-          // Check if this identifier is a known item
-          let targetName = null;
-          if (itemRegistry.has(identifier)) {
-            targetName = identifier;
-          } else {
-            // Try stripping fork suffix
-            const { base, fork } = parseForkNameInternal(identifier);
-            if (fork && base !== identifier && itemRegistry.has(base)) {
-              targetName = base;
-            }
-          }
-
-          if (targetName && usedByIndex.has(targetName)) {
+          if (targetName && targetName !== sourceName && usedByIndex.has(targetName)) {
             usedByIndex.get(targetName).add(sourceName);
           }
         }
@@ -130,11 +170,12 @@ export function buildUsedByIndex(items) {
 }
 
 /**
- * Internal version of parseForkName for use before export
+ * Parse fork name from a variable name
+ * (e.g. MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA -> MIN_PER_EPOCH_CHURN_LIMIT)
  */
 function parseForkNameInternal(varName) {
   const varNameUpper = varName.toUpperCase();
-  for (const fork of FORK_ORDER) {
+  for (const fork of getForkOrder()) {
     const suffix = '_' + fork;
     if (varNameUpper.endsWith(suffix)) {
       return {
@@ -237,23 +278,6 @@ function updateNavigationButtons() {
 }
 
 /**
- * Parse fork name from variable name (e.g., MIN_PER_EPOCH_CHURN_LIMIT_ELECTRA -> MIN_PER_EPOCH_CHURN_LIMIT)
- */
-function parseForkName(varName) {
-  const varNameUpper = varName.toUpperCase();
-  for (const fork of FORK_ORDER) {
-    const suffix = '_' + fork;
-    if (varNameUpper.endsWith(suffix)) {
-      return {
-        base: varName.slice(0, varName.length - suffix.length),
-        fork: fork
-      };
-    }
-  }
-  return { base: varName, fork: null };
-}
-
-/**
  * Add clickable references to a code block
  */
 export function addClickableReferences(block) {
@@ -284,18 +308,7 @@ export function addClickableReferences(block) {
 
     while ((match = identifierRegex.exec(text)) !== null) {
       const identifier = match[1];
-      let targetName = null;
-
-      // Check if this identifier exists in our registry
-      if (hasItem(identifier)) {
-        targetName = identifier;
-      } else {
-        // Try parsing fork-specific names
-        const { base, fork } = parseForkName(identifier);
-        if (fork && base !== identifier && hasItem(base)) {
-          targetName = base;
-        }
-      }
+      const targetName = resolveItemName(identifier);
 
       if (targetName) {
         replacements.push({

@@ -94,6 +94,7 @@ body {
 }
 
 /* Version dropdown */
+.repo-select,
 .version-select {
   padding: 0.5rem 2rem 0.5rem 0.75rem;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -113,21 +114,25 @@ body {
   background-position: right 0.6rem center;
 }
 
+.repo-select option,
 .version-select option {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-weight: normal;
   padding: 0.5rem;
 }
 
+[data-theme="dark"] .repo-select,
 [data-theme="dark"] .version-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23aaa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
 }
 
+.repo-select:hover,
 .version-select:hover {
   border-color: var(--link-color);
   background-color: var(--hover-bg);
 }
 
+.repo-select:focus,
 .version-select:focus {
   outline: none;
   border-color: var(--link-color);
@@ -470,12 +475,20 @@ input:checked + .toggle-slider:before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
+  /* Single-letter labels stay square; longer ones grow to fit */
+  min-width: 18px;
+  padding: 0 3px;
   height: 18px;
   border-radius: 3px;
   font-size: 0.65rem;
   font-weight: 600;
   color: white;
+}
+
+.tree-fork-badge-more {
+  background-color: var(--hover-bg) !important;
+  color: var(--text-color);
+  opacity: 0.7;
 }
 
 /* Content area */
@@ -1100,6 +1113,15 @@ pre[class*="language-"] {
   /* Reduce header-left gap */
   .header-left {
     gap: 0.75rem;
+    min-width: 0;
+  }
+
+  /* Both selectors share the row once the title is hidden */
+  .repo-select,
+  .version-select {
+    min-width: 0;
+    max-width: 42vw;
+    text-overflow: ellipsis;
   }
 
   /* Reduce header-right gap */

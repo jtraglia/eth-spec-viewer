@@ -2,9 +2,19 @@
  * Specification viewer module - displays selected items
  */
 
-import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName, FORK_ORDER } from './constants.js';
+import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName, getForkOrder, isVariableCategory } from './constants.js';
 import { addClickableReferences, getUsedBy, navigateToReference } from './references.js';
 import { isDiffEnabled, createDiffControls, computeDiffStats, renderDiff, stripComments } from './forkDiff.js';
+import { getActiveRepo } from './repos.js';
+
+/**
+ * Build the URL hash that links to an item, optionally at a specific fork
+ */
+function itemHash(item, fork) {
+  const version = window.getCurrentVersion ? window.getCurrentVersion() : 'nightly';
+  const base = `${getActiveRepo().id}/${version}/${item.category}-${item.name}`;
+  return fork ? `${base}-${fork.toLowerCase()}` : base;
+}
 
 // Current item being displayed
 let currentItem = null;
@@ -101,16 +111,14 @@ export function displaySpec(item) {
     <span>${item.name}</span>
   `;
 
-  // Update URL hash for direct linking (include version)
-  const version = window.getCurrentVersion ? window.getCurrentVersion() : 'nightly';
-  const itemId = `${version}/${item.category}-${item.name}`;
-  history.replaceState(null, '', `#${itemId}`);
+  // Update URL hash for direct linking (include repo and version)
+  history.replaceState(null, '', `#${itemHash(item)}`);
 
   // Clear existing content
   content.innerHTML = '';
 
   // Check if this is a variable type (constants, presets, config) or code type
-  const isVariable = ['constant_vars', 'preset_vars', 'config_vars'].includes(item.category);
+  const isVariable = isVariableCategory(item.category);
 
   // Fork diffing only applies to code items, and only once there are at least
   // two recorded forks to compare
@@ -184,11 +192,8 @@ function displayVariable(item, container) {
   copyBtn.title = 'Copy link to this item';
   copyBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    // Build URL with version
-    const version = window.getCurrentVersion ? window.getCurrentVersion() : 'nightly';
-    const itemId = `${version}/${item.category}-${item.name}`;
     const url = new URL(window.location.href);
-    url.hash = itemId;
+    url.hash = itemHash(item);
     navigator.clipboard.writeText(url.href).then(() => {
       copyBtn.innerHTML = '<i class="fas fa-check"></i>';
       setTimeout(() => {
@@ -359,11 +364,8 @@ function displayCode(item, container) {
     copyBtn.title = 'Copy link to this item';
     copyBtn.addEventListener('click', (e) => {
       e.stopPropagation(); // Don't toggle the collapsible
-      // Include version and fork in the URL hash: version/category-itemName-fork
-      const version = window.getCurrentVersion ? window.getCurrentVersion() : 'nightly';
-      const itemId = `${version}/${item.category}-${item.name}-${fork.toLowerCase()}`;
       const url = new URL(window.location.href);
-      url.hash = itemId;
+      url.hash = itemHash(item, fork);
       navigator.clipboard.writeText(url.href).then(() => {
         copyBtn.innerHTML = '<i class="fas fa-check"></i>';
         setTimeout(() => {
@@ -451,13 +453,14 @@ export function openForkInViewer(preferredFork) {
 
     // If preferred fork not found, find the most recent fork <= preferred fork
     if (!forkToOpen) {
-      const preferredIndex = FORK_ORDER.indexOf(preferredFork);
+      const forkOrder = getForkOrder();
+    const preferredIndex = forkOrder.indexOf(preferredFork);
       if (preferredIndex >= 0) {
         const availableForks = Array.from(forkBlocks).map(block => block.dataset.fork);
 
         // Starting from preferred fork, go backwards to find the latest one that exists
         for (let i = preferredIndex; i >= 0; i--) {
-          const candidateFork = FORK_ORDER[i];
+          const candidateFork = forkOrder[i];
           if (availableForks.includes(candidateFork)) {
             forkToOpen = Array.from(forkBlocks).find(block => block.dataset.fork === candidateFork);
             break;

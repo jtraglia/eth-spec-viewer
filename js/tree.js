@@ -2,7 +2,7 @@
  * Tree navigation module for the specification viewer
  */
 
-import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName, CATEGORY_ORDER, FORK_ORDER } from './constants.js';
+import { getForkDisplayName, getForkColor, getForkShortLabel, getCategoryDisplayName, getCategoryOrder, getForkOrder, isVariableCategory, ignoresForkNameInComparison } from './constants.js';
 import { registerItem, clearRegistry, buildUsedByIndex } from './references.js';
 
 // Callback for when an item is selected
@@ -11,6 +11,9 @@ let onItemSelectCallback = null;
 // Cache for tree nodes
 let treeNodes = [];
 
+// Most fork badges to show on a tree row before collapsing into a "+N" chip
+const MAX_FORK_BADGES = 4;
+
 /**
  * Set the callback for item selection
  */
@@ -18,16 +21,14 @@ export function setOnItemSelectCallback(callback) {
   onItemSelectCallback = callback;
 }
 
-// Fork suffixes in order (oldest to newest)
-const FORK_SUFFIXES = FORK_ORDER.map(fork => `_${fork}`);
-
 /**
  * Get the base name of a variable by stripping fork suffixes
  * Returns { baseName, hasSuffix, suffixIndex }
  */
 function getBaseName(name) {
-  for (let i = 0; i < FORK_SUFFIXES.length; i++) {
-    const suffix = FORK_SUFFIXES[i];
+  const forkOrder = getForkOrder();
+  for (let i = 0; i < forkOrder.length; i++) {
+    const suffix = `_${forkOrder[i]}`;
     if (name.endsWith(suffix)) {
       return { baseName: name.slice(0, -suffix.length), hasSuffix: true, suffixIndex: i };
     }
@@ -85,6 +86,20 @@ function getBestVersionValue(categoryData) {
 }
 
 /**
+ * Build the string used to decide whether a fork changed an item.
+ *
+ * Some repos embed the fork's own name in boilerplate (execution-specs puts it
+ * in docstring cross-references), which would record a change in every single
+ * fork, so that name is blanked out before comparing. The displayed source is
+ * never altered - this only affects change detection.
+ */
+function comparisonKey(value, fork) {
+  const text = JSON.stringify(value);
+  if (!ignoresForkNameInComparison()) return text;
+  return text.replace(new RegExp(`\\b${fork.toLowerCase()}\\b`, 'gi'), '\u0000');
+}
+
+/**
  * Collect all items from the data, tracking only forks where the value changed
  */
 function collectItems(data, forks) {
@@ -98,14 +113,14 @@ function collectItems(data, forks) {
   const items = {};
 
   // For each category
-  CATEGORY_ORDER.forEach(category => {
+  getCategoryOrder().forEach(category => {
     items[category] = {};
 
     // Track last value for each item to detect changes (using mainnet)
     const lastValues = {};
 
     // Check if this is a variable category that needs consolidation
-    const isVariableCategory = ['constant_vars', 'preset_vars', 'config_vars'].includes(category);
+    const consolidateVariables = isVariableCategory(category);
 
     // For each fork in order
     forks.forEach(fork => {
@@ -117,7 +132,7 @@ function collectItems(data, forks) {
 
       if (!mainnetCategoryData && !minimalCategoryData) return;
 
-      if (isVariableCategory) {
+      if (consolidateVariables) {
         // Get best versions for both networks
         const mainnetBest = mainnetCategoryData ? getBestVersionValue(mainnetCategoryData) : {};
         const minimalBest = minimalCategoryData ? getBestVersionValue(minimalCategoryData) : {};
@@ -152,7 +167,7 @@ function collectItems(data, forks) {
         // Non-variable categories - no consolidation needed, use mainnet only
         const categoryData = mainnetCategoryData || minimalCategoryData;
         Object.entries(categoryData).forEach(([name, value]) => {
-          const valueStr = JSON.stringify(value);
+          const valueStr = comparisonKey(value, fork);
 
           if (!items[category][name]) {
             items[category][name] = {
@@ -230,8 +245,7 @@ function createItemNode(item) {
   labelEl.appendChild(code);
 
   // Add warning icon if mainnet/minimal values differ (only for variable categories)
-  const isVariableCategory = ['constant_vars', 'preset_vars', 'config_vars'].includes(item.category);
-  if (isVariableCategory && hasNetworkDifferences(item)) {
+  if (isVariableCategory(item.category) && hasNetworkDifferences(item)) {
     const warning = document.createElement('span');
     warning.className = 'network-diff-warning';
     warning.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
@@ -243,7 +257,13 @@ function createItemNode(item) {
   const badgesContainer = document.createElement('span');
   badgesContainer.className = 'tree-fork-badges';
 
-  [...item.forks].reverse().forEach(fork => {
+  // Long-lived items can change in every fork, which would push the row far
+  // wider than the sidebar, so only the newest few get a badge
+  const forksNewestFirst = [...item.forks].reverse();
+  const shown = forksNewestFirst.slice(0, MAX_FORK_BADGES);
+  const hidden = forksNewestFirst.slice(MAX_FORK_BADGES);
+
+  shown.forEach(fork => {
     const badge = document.createElement('span');
     badge.className = 'tree-fork-badge';
     badge.textContent = getForkShortLabel(fork);
@@ -251,6 +271,14 @@ function createItemNode(item) {
     badge.title = getForkDisplayName(fork);
     badgesContainer.appendChild(badge);
   });
+
+  if (hidden.length > 0) {
+    const more = document.createElement('span');
+    more.className = 'tree-fork-badge tree-fork-badge-more';
+    more.textContent = `+${hidden.length}`;
+    more.title = hidden.map(getForkDisplayName).join(', ');
+    badgesContainer.appendChild(more);
+  }
 
   labelEl.appendChild(badgesContainer);
   node.appendChild(labelEl);
@@ -263,8 +291,10 @@ function createItemNode(item) {
   // Store item data for selection
   node._itemData = item;
 
-  // Register item for reference linking
-  registerItem(item.name, node);
+  // Register item for reference linking. Module-qualified names also register
+  // their bare name, since that is how the code refers to them.
+  const shortName = item.name.includes('.') ? item.name.split('.').pop() : null;
+  registerItem(item.name, node, shortName ? [shortName] : []);
 
   labelEl.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -293,7 +323,7 @@ export function buildTree(data, forks) {
   const items = collectItems(data, forks);
 
   // Build tree by category - items directly under category, sorted alphabetically
-  CATEGORY_ORDER.forEach(category => {
+  getCategoryOrder().forEach(category => {
     const categoryItems = items[category];
     if (!categoryItems || Object.keys(categoryItems).length === 0) return;
 

@@ -6,7 +6,7 @@ on:
   workflow_dispatch: # Allow manual runs
 
 jobs:
-  update-pyspec:
+  update-specs:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,6 +18,8 @@ jobs:
       - name: Install the latest version of uv
         uses: astral-sh/setup-uv@v6
 
+      # --- consensus-specs ---
+
       - name: Clone Consensus Specs
         run: |
           git clone https://github.com/ethereum/consensus-specs.git
@@ -27,25 +29,57 @@ jobs:
           cd consensus-specs
           git apply ../write_pyspec_dict.patch
 
-      - name: Build Pyspec JSON
+      - name: Build Consensus Spec JSON
         run: |
-          mkdir -p pyspec/nightly
+          mkdir -p specs/consensus/nightly
           cd consensus-specs
           make _pyspec
-          cp pyspec.json ../pyspec/nightly/pyspec.json
+          cp pyspec.json ../specs/consensus/nightly/spec.json
 
+      # --- execution-specs ---
+
+      - name: Clone Execution Specs
+        run: |
+          # Only the spec packages are needed; the repo also carries the test
+          # suite, which is far larger than the specs themselves
+          git clone --depth 1 --filter=blob:none --sparse \
+            https://github.com/ethereum/execution-specs.git
+          cd execution-specs
+          git sparse-checkout set src/ethereum
+
+      - name: Build Execution Spec JSON
+        run: |
+          python3 scripts/extract_execution_specs.py \
+            execution-specs specs/execution/nightly/spec.json
+
+      - name: Update Execution versions.json
+        run: |
+          cd specs/execution
+          ls -d */ 2>/dev/null | sed 's|/||' | jq -R . | jq -s . > versions.json
+
+      # Both repos are committed together in a single push. Running them as two
+      # workflows on the same schedule meant whichever pushed second was
+      # rejected as non-fast-forward on any night both had changes.
       - name: Commit and Push Changes
+        # Still runs when a build step failed, so a broken upstream on one side
+        # does not hold back the other side's update. The run is reported as
+        # failed either way.
+        if: ${{ !cancelled() }}
         run: |
           git config --global user.name "GitHub Actions"
           git config --global user.email "actions@github.com"
 
-          # Check if there are any changes
-          if ! git diff --quiet; then
-            git add pyspec/
-            git commit -m "Update nightly pyspec.json"
-            git push
-          else
+          # Remove the cloned upstream repositories
+          rm -rf consensus-specs/ execution-specs/
+
+          # Staging first so the check covers new files as well as modified ones
+          git add specs/
+
+          if git diff --cached --quiet; then
             echo "No changes detected. Skipping commit."
+          else
+            git commit -m "Update nightly specs"
+            git push
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

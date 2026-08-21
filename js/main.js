@@ -1,12 +1,13 @@
 /**
- * Main application entry point for the Ethereum Consensus Specifications viewer
+ * Main application entry point for the Ethereum Specifications viewer
  */
 
 import { initDarkMode } from './darkMode.js';
 import { initResizable } from './resizable.js';
 import { buildTree, filterTree, setOnItemSelectCallback } from './tree.js';
 import { displaySpec, clearSpec, openForkInViewer, showItemNotFound } from './specViewer.js';
-import { CATEGORY_TYPES, CATEGORY_ORDER, FORK_ORDER, getForkDisplayName } from './constants.js';
+import { getCategoryOrder, getCategoryDisplayName, getForkOrder, getForkDisplayName } from './constants.js';
+import { REPO_ORDER, DEFAULT_REPO, getRepo, getActiveRepo, setActiveRepo, isRepoId, applyForkOrderFromData } from './repos.js';
 import { initReferenceClickHandler, addToHistory, goBack, goForward, navigateToReference, clearHistory } from './references.js';
 
 // Mobile sidebar state
@@ -98,7 +99,12 @@ const state = {
   activeTypeFilter: null,
   searchTerm: '',
   currentVersion: 'nightly',
-  availableVersions: ['nightly']
+  availableVersions: ['nightly'],
+  currentRepo: DEFAULT_REPO,
+  // Version list and last-viewed version, remembered per repo so switching
+  // back and forth does not lose your place
+  versionsByRepo: {},
+  lastVersionByRepo: {}
 };
 
 /**
@@ -108,13 +114,15 @@ function extractForks(data) {
   const networkData = data.mainnet || data.minimal;
   if (!networkData) return [];
 
+  const repo = getActiveRepo();
   const discoveredForks = Object.keys(networkData)
-    .filter(f => !f.toUpperCase().startsWith('EIP') && f.toUpperCase() !== 'WHISK')
-    .map(f => f.toUpperCase());
+    .map(f => f.toUpperCase())
+    .filter(f => !repo.excludeFork(f));
 
   // Sort by known order, then alphabetically for unknown forks
-  const knownForks = FORK_ORDER.filter(f => discoveredForks.includes(f));
-  const unknownForks = discoveredForks.filter(f => !FORK_ORDER.includes(f)).sort();
+  const forkOrder = getForkOrder();
+  const knownForks = forkOrder.filter(f => discoveredForks.includes(f));
+  const unknownForks = discoveredForks.filter(f => !forkOrder.includes(f)).sort();
 
   return [...knownForks, ...unknownForks];
 }
@@ -157,8 +165,8 @@ function buildTypeFilters() {
   const container = document.getElementById('typeFilters');
   container.innerHTML = '';
 
-  CATEGORY_ORDER.forEach(key => {
-    const displayName = CATEGORY_TYPES[key];
+  getCategoryOrder().forEach(key => {
+    const displayName = getCategoryDisplayName(key);
     const btn = document.createElement('button');
     btn.className = 'type-filter-btn';
     btn.textContent = displayName;
@@ -264,59 +272,78 @@ window.selectItem = onItemSelect;
 window.getCurrentVersion = () => state.currentVersion;
 
 /**
+ * Parse a URL hash into its parts.
+ *
+ * Current format: repo/version/category-itemName[-fork]
+ * Legacy formats: version/category-itemName[-fork], or category-itemName[-fork]
+ *
+ * Legacy hashes predate execution-specs support and always meant consensus,
+ * so links shared before this feature keep working.
+ */
+function parseHash(hash) {
+  const segments = hash.split('/');
+
+  let repo = null;
+  let version = null;
+  let remainder = hash;
+
+  if (segments.length >= 3) {
+    [repo, version] = segments;
+    remainder = segments.slice(2).join('/');
+  } else if (segments.length === 2) {
+    // Could be either repo/rest or the legacy version/rest
+    if (isRepoId(segments[0])) {
+      repo = segments[0];
+    } else {
+      version = segments[0];
+    }
+    remainder = segments[1];
+  }
+
+  if (!isRepoId(repo)) repo = DEFAULT_REPO;
+
+  // Fork names are matched against the repo the link points at, not the one
+  // currently loaded
+  const knownForks = getRepo(repo).forkOrder.map(f => f.toLowerCase());
+  const parts = remainder.split('-');
+  const lastPart = parts[parts.length - 1].toLowerCase();
+
+  let preferredFork = null;
+  let itemName;
+
+  if (parts.length >= 3 && knownForks.includes(lastPart)) {
+    preferredFork = lastPart.toUpperCase();
+    itemName = parts.slice(1, -1).join('-');
+  } else if (parts.length >= 2) {
+    itemName = parts.slice(1).join('-');
+  } else {
+    itemName = remainder;
+  }
+
+  return { repo, version, itemName, preferredFork };
+}
+
+/**
  * Handle direct links (URL hash)
- * Format: version/category-itemName or version/category-itemName-FORK
- * Legacy format: category-itemName or category-itemName-FORK
  */
 function handleDirectLink() {
-  if (window.location.hash) {
-    const hash = window.location.hash.substring(1);
+  if (!window.location.hash) return;
 
-    // Check if hash contains version (has a slash)
-    let version = null;
-    let remainder = hash;
+  const { version, itemName, preferredFork } = parseHash(window.location.hash.substring(1));
 
-    if (hash.includes('/')) {
-      const slashIndex = hash.indexOf('/');
-      version = hash.substring(0, slashIndex);
-      remainder = hash.substring(slashIndex + 1);
-    }
-
-    const parts = remainder.split('-');
-
-    // Check if last part is a fork name
-    const knownForks = FORK_ORDER.map(f => f.toLowerCase());
-    let preferredFork = null;
-    let itemName = null;
-
-    const lastPart = parts[parts.length - 1].toLowerCase();
-    if (parts.length >= 3 && knownForks.includes(lastPart)) {
-      // Format: category-itemName-fork
-      preferredFork = lastPart.toUpperCase(); // Convert back to uppercase for internal use
-      itemName = parts.slice(1, -1).join('-');
-    } else if (parts.length >= 2) {
-      // Format: category-itemName
-      itemName = parts.slice(1).join('-');
-    } else {
-      itemName = remainder;
-    }
-
-    // If a version was specified in the URL, switch to it first
-    if (version && version !== state.currentVersion && state.availableVersions.includes(version)) {
-      state.currentVersion = version;
-      // Update the dropdown
-      const select = document.getElementById('versionSelect');
-      if (select) select.value = version;
-      // Load the version data, then select the item
-      loadVersionData(version).then(() => {
-        selectItemByName(itemName, preferredFork);
-      });
-    } else {
-      // Try to find and select the item in current version
-      setTimeout(() => {
-        selectItemByName(itemName, preferredFork);
-      }, 500);
-    }
+  // The repo is already applied before the initial load, so only the version
+  // may still need switching here
+  if (version && version !== state.currentVersion && state.availableVersions.includes(version)) {
+    state.currentVersion = version;
+    const select = document.getElementById('versionSelect');
+    if (select) select.value = version;
+    loadVersionData(version).then(() => {
+      selectItemByName(itemName, preferredFork);
+    });
+  } else {
+    setTimeout(() => {
+      selectItemByName(itemName, preferredFork);
+    }, 500);
   }
 }
 
@@ -364,17 +391,26 @@ function selectItemByName(itemName, preferredFork) {
  * Discover available versions from versions.json
  */
 async function discoverVersions() {
+  const repo = getActiveRepo();
+
+  if (state.versionsByRepo[repo.id]) {
+    state.availableVersions = state.versionsByRepo[repo.id];
+    return;
+  }
+
+  let versions = ['nightly'];
   try {
-    const response = await fetch('pyspec/versions.json');
+    const response = await fetch(repo.versionsPath);
     if (response.ok) {
-      const versions = await response.json();
-      state.availableVersions = versions;
+      versions = await response.json();
     }
   } catch (err) {
     // If versions.json doesn't exist, fall back to nightly only
-    console.log('versions.json not found, using nightly only');
-    state.availableVersions = ['nightly'];
+    console.log(`${repo.versionsPath} not found, using nightly only`);
   }
+
+  state.versionsByRepo[repo.id] = versions;
+  state.availableVersions = versions;
 }
 
 /**
@@ -427,6 +463,59 @@ function compareVersions(a, b) {
 }
 
 /**
+ * Populate the repo dropdown
+ */
+function populateRepoDropdown() {
+  const select = document.getElementById('repoSelect');
+  if (!select) return;
+
+  select.innerHTML = '';
+  REPO_ORDER.forEach(id => {
+    const option = document.createElement('option');
+    option.value = id;
+    // The id doubles as the label, so the dropdown always matches the URL
+    option.textContent = id;
+    if (id === state.currentRepo) option.selected = true;
+    select.appendChild(option);
+  });
+}
+
+/**
+ * Handle repo change
+ *
+ * The two repos share no fork names, versions or items, so this resets the
+ * view rather than trying to carry the current selection across.
+ */
+async function onRepoChange(repoId) {
+  if (repoId === state.currentRepo || !isRepoId(repoId)) return;
+
+  state.lastVersionByRepo[state.currentRepo] = state.currentVersion;
+
+  state.currentRepo = repoId;
+  setActiveRepo(repoId);
+
+  state.currentItem = null;
+  state.currentItemName = null;
+  state.activeForkFilter = null;
+  state.activeTypeFilter = null;
+  clearHistory();
+  clearSpec();
+
+  await discoverVersions();
+
+  // Return to whichever version was last open in this repo
+  const remembered = state.lastVersionByRepo[repoId];
+  state.currentVersion = state.availableVersions.includes(remembered)
+    ? remembered
+    : (state.availableVersions.includes('nightly') ? 'nightly' : state.availableVersions[0]);
+
+  populateVersionDropdown();
+  history.replaceState(null, '', `#${buildHash()}`);
+
+  await loadVersionData(state.currentVersion);
+}
+
+/**
  * Populate the version dropdown
  */
 function populateVersionDropdown() {
@@ -452,6 +541,14 @@ function populateVersionDropdown() {
 }
 
 /**
+ * Build the URL hash for the current repo, version and (optional) item
+ */
+function buildHash(itemName, category) {
+  const base = `${state.currentRepo}/${state.currentVersion}/`;
+  return itemName && category ? `${base}${category}-${itemName}` : base;
+}
+
+/**
  * Handle version change
  */
 async function onVersionChange(version) {
@@ -466,17 +563,11 @@ async function onVersionChange(version) {
   clearHistory();
 
   // Update URL to reflect version change
-  if (itemNameToFind && state.currentItem) {
-    // If viewing an item, update the full hash
-    const itemId = `${version}/${state.currentItem.category}-${itemNameToFind}`;
-    history.replaceState(null, '', `#${itemId}`);
-  } else if (itemNameToFind) {
-    // Item name tracked but not found - just update version in URL
-    history.replaceState(null, '', `#${version}/`);
-  } else {
-    // No item selected - just show version
-    history.replaceState(null, '', `#${version}/`);
-  }
+  state.lastVersionByRepo[state.currentRepo] = version;
+  history.replaceState(null, '', `#${buildHash(
+    itemNameToFind,
+    state.currentItem && state.currentItem.category
+  )}`);
 
   // Reload data for the new version (preserves search term and filters)
   await loadVersionData(version);
@@ -524,12 +615,17 @@ async function loadVersionData(version) {
   const savedSearchTerm = state.searchTerm;
 
   try {
-    const response = await fetch(`pyspec/${version}/pyspec.json`);
+    const response = await fetch(getActiveRepo().dataPath(version));
     if (!response.ok) {
       throw new Error(`Failed to load data: ${response.status} ${response.statusText}`);
     }
 
     state.data = await response.json();
+
+    // execution-specs ships its own fork order, since it gains forks too often
+    // for a hardcoded list to stay correct
+    applyForkOrderFromData(state.data);
+
     state.forks = extractForks(state.data);
 
     // Build UI (this resets button states)
@@ -582,24 +678,28 @@ async function loadVersionData(version) {
  * Load data and initialize the application
  */
 async function loadData() {
-  // Discover available versions
+  // The repo has to be settled before anything else, since it decides which
+  // versions exist and where the data lives
+  let versionFromHash = null;
+  if (window.location.hash) {
+    const parsed = parseHash(window.location.hash.substring(1));
+    state.currentRepo = parsed.repo;
+    versionFromHash = parsed.version;
+  }
+  setActiveRepo(state.currentRepo);
+
+  populateRepoDropdown();
+
   await discoverVersions();
 
-  // Check if URL hash specifies a version
-  if (window.location.hash) {
-    const hash = window.location.hash.substring(1);
-    if (hash.includes('/')) {
-      const versionFromHash = hash.substring(0, hash.indexOf('/'));
-      if (state.availableVersions.includes(versionFromHash)) {
-        state.currentVersion = versionFromHash;
-      }
-    }
+  if (versionFromHash && state.availableVersions.includes(versionFromHash)) {
+    state.currentVersion = versionFromHash;
+  } else if (!state.availableVersions.includes(state.currentVersion)) {
+    state.currentVersion = state.availableVersions[0] || 'nightly';
   }
 
-  // Populate the version dropdown
   populateVersionDropdown();
 
-  // Load data for the current version
   await loadVersionData(state.currentVersion);
 }
 
@@ -610,6 +710,17 @@ function initVersionSelector() {
   const select = document.getElementById('versionSelect');
   select.addEventListener('change', () => {
     onVersionChange(select.value);
+  });
+}
+
+/**
+ * Initialize repo selector
+ */
+function initRepoSelector() {
+  const select = document.getElementById('repoSelect');
+  if (!select) return;
+  select.addEventListener('change', () => {
+    onRepoChange(select.value);
   });
 }
 
@@ -648,6 +759,7 @@ function init() {
   initMobileSidebar();
   initSearch();
   initNavigation();
+  initRepoSelector();
   initVersionSelector();
   initReferenceClickHandler();
   loadData();

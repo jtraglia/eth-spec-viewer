@@ -36,11 +36,11 @@ jobs:
       - name: Check Processed Tags
         id: check-processed
         run: |
-          # Create pyspec directory if it doesn't exist
-          mkdir -p pyspec
+          # Create the consensus specs directory if it doesn't exist
+          mkdir -p specs/consensus
 
           # Get list of already processed tags
-          PROCESSED_TAGS=$(ls pyspec/ 2>/dev/null || echo "")
+          PROCESSED_TAGS=$(ls specs/consensus/ 2>/dev/null || echo "")
           echo "processed<<EOF" >> $GITHUB_OUTPUT
           echo "$PROCESSED_TAGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -88,17 +88,17 @@ jobs:
             make _pyspec
 
             # Create tag directory and copy files
-            mkdir -p "../pyspec/$tag"
-            cp pyspec.json "../pyspec/$tag/"
+            mkdir -p "../specs/consensus/$tag"
+            cp pyspec.json "../specs/consensus/$tag/spec.json"
           done
 
       - name: Update versions.json
         run: |
-          # Generate versions.json from existing pyspec directories
-          cd pyspec
+          # Generate versions.json from existing version directories
+          cd specs/consensus
           # List all directories (versions) and output as JSON array
           ls -d */ 2>/dev/null | sed 's/\///' | jq -R . | jq -s . > versions.json
-          cd ..
+          cd ../..
 
       - name: Commit and Push Changes
         run: |
@@ -110,7 +110,7 @@ jobs:
 
           # Check if there are any changes
           if ! git diff --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
-            git add pyspec/
+            git add specs/consensus/
             git commit -m "Add consensus-specs tagged versions"
             git push
           else

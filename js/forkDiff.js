@@ -170,6 +170,19 @@ export function stripComments(code) {
 }
 
 /**
+ * Ensure code ends with a newline before diffing.
+ *
+ * jsdiff tokenizes each line together with its terminator, so a final line
+ * with no trailing newline never matches the same text followed by one - an
+ * unchanged last line would show up as removed and re-added. Normalizing here
+ * rather than in stripComments keeps the plain code view free of a trailing
+ * blank line.
+ */
+function withTrailingNewline(code) {
+  return code.endsWith('\n') ? code : `${code}\n`;
+}
+
+/**
  * Split a diff part's value into lines, dropping the empty string that a
  * trailing newline leaves behind
  */
@@ -189,7 +202,7 @@ export function computeDiffStats(oldCode, newCode) {
   let added = 0;
   let removed = 0;
 
-  Diff.diffLines(oldCode, newCode).forEach(part => {
+  Diff.diffLines(withTrailingNewline(oldCode), withTrailingNewline(newCode)).forEach(part => {
     const count = toLines(part.value).length;
     if (part.added) added += count;
     else if (part.removed) removed += count;
@@ -202,9 +215,12 @@ export function computeDiffStats(oldCode, newCode) {
  * Flatten the diff into one row per rendered line, carrying both line numbers
  */
 function buildUnifiedRows(oldCode, newCode) {
-  const changes = Diff.diffLines(oldCode, newCode);
-  const oldHtml = highlightCodeBlock(oldCode);
-  const newHtml = highlightCodeBlock(newCode);
+  const oldText = withTrailingNewline(oldCode);
+  const newText = withTrailingNewline(newCode);
+
+  const changes = Diff.diffLines(oldText, newText);
+  const oldHtml = highlightCodeBlock(oldText);
+  const newHtml = highlightCodeBlock(newText);
 
   const rows = [];
   let oldLine = 0;

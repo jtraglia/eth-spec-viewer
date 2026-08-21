@@ -1,107 +1,70 @@
 /**
- * Constants and utilities for the specification viewer
+ * Fork and category helpers for the specification viewer
+ *
+ * These all resolve against whichever repo is currently active, so callers do
+ * not need to know which spec they are rendering. See repos.js for the
+ * per-repo definitions.
  */
 
-// Category types mapping
-export const CATEGORY_TYPES = {
-  'constant_vars': 'constants',
-  'preset_vars': 'presets',
-  'config_vars': 'configs',
-  'custom_types': 'types',
-  'dataclasses': 'dataclasses',
-  'ssz_objects': 'ssz objects',
-  'functions': 'functions'
-};
+import { getActiveRepo } from './repos.js';
 
-// Category order for display (alphabetical by display name)
-export const CATEGORY_ORDER = [
-  'config_vars',      // configs
-  'constant_vars',    // constants
-  'dataclasses',      // dataclasses
-  'functions',        // functions
-  'preset_vars',      // presets
-  'ssz_objects',      // ssz objects
-  'custom_types'      // types
-];
+/**
+ * Categories of the active repo, in display order
+ */
+export function getCategoryOrder() {
+  return getActiveRepo().categoryOrder;
+}
 
-// Canonical chronological fork order.
-// This is the single source of truth for fork ordering: the tree, the spec
-// viewer, reference parsing, and the fork-to-fork diff all derive from it.
-export const FORK_ORDER = [
-  'PHASE0',
-  'ALTAIR',
-  'BELLATRIX',
-  'CAPELLA',
-  'DENEB',
-  'ELECTRA',
-  'FULU',
-  'GLOAS',
-  'HEZE'
-];
+/**
+ * Chronological fork order of the active repo
+ */
+export function getForkOrder() {
+  return getActiveRepo().forkOrder;
+}
 
-// Fork display names
-export const FORK_DISPLAY_NAMES = {
-  'PHASE0': 'phase0',
-  'ALTAIR': 'altair',
-  'BELLATRIX': 'bellatrix',
-  'CAPELLA': 'capella',
-  'DENEB': 'deneb',
-  'ELECTRA': 'electra',
-  'FULU': 'fulu',
-  'GLOAS': 'gloas',
-  'HEZE': 'heze'
-};
+/**
+ * Whether a fork's own name should be ignored when detecting changes
+ */
+export function ignoresForkNameInComparison() {
+  return getActiveRepo().ignoreForkNameInComparison === true;
+}
 
-// Fork colors
-export const FORK_COLORS = {
-  'PHASE0': '#6c757d',
-  'ALTAIR': '#28a745',
-  'BELLATRIX': '#007bff',
-  'CAPELLA': '#6f42c1',
-  'DENEB': '#e83e8c',
-  'ELECTRA': '#ffc107',
-  'FULU': '#17a2b8',
-  'GLOAS': '#fd7e14',
-  'HEZE': '#20c997'
-};
-
-// Fork short labels for badges
-export const FORK_SHORT_LABELS = {
-  'PHASE0': '0',
-  'ALTAIR': 'A',
-  'BELLATRIX': 'B',
-  'CAPELLA': 'C',
-  'DENEB': 'D',
-  'ELECTRA': 'E',
-  'FULU': 'F',
-  'GLOAS': 'G',
-  'HEZE': 'H'
-};
+/**
+ * Whether a category is rendered as a fork/value table rather than as code
+ */
+export function isVariableCategory(category) {
+  return getActiveRepo().variableCategories.includes(category);
+}
 
 /**
  * Get fork display name
  */
 export function getForkDisplayName(fork) {
-  return FORK_DISPLAY_NAMES[fork] || fork.toLowerCase();
+  return getActiveRepo().forkNames[fork] || fork.toLowerCase();
 }
 
 /**
  * Get fork color
  */
 export function getForkColor(fork) {
-  return FORK_COLORS[fork] || '#6c757d';
+  return getActiveRepo().forkColors[fork] || '#6c757d';
 }
 
 /**
  * Get fork short label for badges
+ *
+ * Falls back to the first three characters, which keeps badges distinguishable
+ * for repos with many similarly-named forks.
  */
 export function getForkShortLabel(fork) {
-  return FORK_SHORT_LABELS[fork] || fork.charAt(0).toUpperCase();
+  const repo = getActiveRepo();
+  if (repo.forkLabels[fork]) return repo.forkLabels[fork];
+  return fork.slice(0, 3).toUpperCase();
 }
 
 /**
  * Get category display name
  */
 export function getCategoryDisplayName(category) {
-  return CATEGORY_TYPES[category] || category;
+  return getActiveRepo().categoryNames[category] || category;
 }
